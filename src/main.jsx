@@ -514,6 +514,27 @@ function getVisitorId() {
 
 function FloatingAssistant({ assistant }) {
   const [open, setOpen] = React.useState(false);
+  const userInteractedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (!userInteractedRef.current) {
+        setOpen(true);
+      }
+    }, 3000);
+
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const closePanel = () => {
+    userInteractedRef.current = true;
+    setOpen(false);
+  };
+
+  const togglePanel = () => {
+    userInteractedRef.current = true;
+    setOpen((value) => !value);
+  };
 
   return (
     <div className={open ? "floating-assistant is-open" : "floating-assistant"}>
@@ -523,7 +544,7 @@ function FloatingAssistant({ assistant }) {
             className="floating-close"
             type="button"
             aria-label="关闭 AI 分身对话框"
-            onClick={() => setOpen(false)}
+            onClick={closePanel}
           >
             <X size={18} />
           </button>
@@ -535,7 +556,7 @@ function FloatingAssistant({ assistant }) {
         type="button"
         aria-label={open ? "关闭 AI 分身对话框" : "打开 AI 分身对话框"}
         aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
+        onClick={togglePanel}
       >
         <img src={aiAvatar} alt="王学明 AI 分身头像" />
         <span />
