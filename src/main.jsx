@@ -27,6 +27,13 @@ const assistantPrompts = [
   "介绍一下 Flutter App 经验",
   "讲讲性能优化成果",
   "有哪些 SDK 和支付经验？",
+  "讲讲你的游戏公司经历？",
+  "你是如何带领团队完成项目交付的？",
+  "你处理过哪些复杂跨端架构问题？",
+  "你做过哪些能直接影响业务指标的优化？",
+  "你如何保障版本质量和线上稳定性？",
+  "你相比普通前端或客户端开发强在哪里？",
+  "如果入职后 3 个月，你能带来什么价值？"
 ];
 
 const assistantReplies = {
@@ -387,7 +394,11 @@ function AssistantChat({ assistant, compact = false }) {
             <span className="assistant-avatar">
               {message.role === "assistant" ? <img src={aiAvatar} alt="" /> : <UserCog size={15} />}
             </span>
-            <p>{message.text}</p>
+            {message.role === "assistant" ? (
+              <AssistantMarkdown text={message.text} />
+            ) : (
+              <p>{message.text}</p>
+            )}
           </div>
         ))}
       </div>
@@ -417,6 +428,124 @@ function AssistantChat({ assistant, compact = false }) {
       </form>
     </div>
   );
+}
+
+function AssistantMarkdown({ text }) {
+  const blocks = parseAssistantMarkdown(text);
+
+  return (
+    <div className="assistant-markdown">
+      {blocks.map((block, index) => {
+        if (block.type === "ul") {
+          return (
+            <ul key={index}>
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex}>{renderInlineMarkdown(item, itemIndex)}</li>
+              ))}
+            </ul>
+          );
+        }
+
+        if (block.type === "ol") {
+          return (
+            <ol key={index}>
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex}>{renderInlineMarkdown(item, itemIndex)}</li>
+              ))}
+            </ol>
+          );
+        }
+
+        return <p key={index}>{renderInlineMarkdown(block.text, index)}</p>;
+      })}
+    </div>
+  );
+}
+
+function parseAssistantMarkdown(text) {
+  const lines = text.split("\n");
+  const blocks = [];
+  let paragraph = [];
+  let list = null;
+
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    blocks.push({ type: "p", text: paragraph.join("\n") });
+    paragraph = [];
+  };
+
+  const flushList = () => {
+    if (!list) return;
+    blocks.push(list);
+    list = null;
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushParagraph();
+      flushList();
+      continue;
+    }
+
+    const unordered = trimmed.match(/^[-*•]\s+(.+)$/);
+    if (unordered) {
+      flushParagraph();
+      if (!list || list.type !== "ul") {
+        flushList();
+        list = { type: "ul", items: [] };
+      }
+      list.items.push(unordered[1]);
+      continue;
+    }
+
+    const ordered = trimmed.match(/^\d+[.)]\s+(.+)$/);
+    if (ordered) {
+      flushParagraph();
+      if (!list || list.type !== "ol") {
+        flushList();
+        list = { type: "ol", items: [] };
+      }
+      list.items.push(ordered[1]);
+      continue;
+    }
+
+    flushList();
+    paragraph.push(trimmed);
+  }
+
+  flushParagraph();
+  flushList();
+
+  return blocks.length ? blocks : [{ type: "p", text: "" }];
+}
+
+function renderInlineMarkdown(text, keyPrefix = "inline") {
+  const parts = [];
+  const pattern = /(\*\*[^*]+\*\*|`[^`]+`)/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+
+    const token = match[0];
+    const key = `${keyPrefix}-${match.index}`;
+    if (token.startsWith("**")) {
+      parts.push(<strong key={key}>{token.slice(2, -2)}</strong>);
+    } else {
+      parts.push(<code key={key}>{token.slice(1, -1)}</code>);
+    }
+    lastIndex = match.index + token.length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts;
 }
 
 async function streamAssistantReply(question, assistantId, signal, setMessages, setServiceState) {
