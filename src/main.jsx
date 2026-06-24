@@ -421,6 +421,23 @@ async function streamAssistantReply(question, assistantId, signal, setMessages) 
     throw new Error(payload?.detail || payload?.error || `HTTP ${response.status}`);
   }
 
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    const payload = await response.json();
+    const answer = payload?.answer || payload?.data?.answer;
+    if (!answer) {
+      throw new Error(payload?.error || "AI 接口没有返回可展示内容");
+    }
+    setMessages((current) =>
+      updateMessage(current, assistantId, (message) => ({
+        ...message,
+        text: answer,
+        pending: false,
+      })),
+    );
+    return;
+  }
+
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let hasContent = false;

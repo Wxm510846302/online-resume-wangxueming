@@ -32,6 +32,7 @@ jobs:
         run: npm run build
         env:
           VITE_BASE_PATH: /online-resume-wangxueming/
+          VITE_COZE_PROXY_PATH: ${{ vars.VITE_COZE_PROXY_PATH }}
 
       - name: Publish gh-pages branch
         run: |
