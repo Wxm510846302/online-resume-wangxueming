@@ -1,6 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { ArrowLeft, ArrowUpRight, Blocks, BriefcaseBusiness, CalendarClock, Camera, CheckCircle2, Code2, Cpu, FileText, Gauge, Gamepad2, Github, Mail, MapPin, Menu, Mic, PackageCheck, Phone, PlayCircle, Send, ShieldCheck, Sparkles, TimerReset, UserCog, X } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Blocks, BriefcaseBusiness, CalendarClock, Camera, CheckCircle2, Code2, Cpu, FileText, Gauge, Gamepad2, Github, Mail, MapPin, Menu, PackageCheck, Phone, PlayCircle, Send, ShieldCheck, Sparkles, TimerReset, UserCog, X } from "lucide-react";
 import { resume, projects } from "./data/resume.js";
 import { parseCozeSseChunk } from "./utils/cozeStream.js";
 import aiAvatar from "./assets/images/avatar-ai.png?avatar-ai-v1";
@@ -58,10 +58,19 @@ function getAssistantReply(question) {
 }
 
 function App() {
-  const currentPath = window.location.pathname.startsWith(basePath)
-    ? window.location.pathname.slice(basePath.length) || "/"
-    : window.location.pathname;
-  const slug = currentPath.replace(/^\/project\/?/, "").replace(/\/$/, "");
+  const [route, setRoute] = React.useState(getRoute);
+
+  React.useEffect(() => {
+    const syncRoute = () => setRoute(getRoute());
+    window.addEventListener("hashchange", syncRoute);
+    window.addEventListener("popstate", syncRoute);
+    return () => {
+      window.removeEventListener("hashchange", syncRoute);
+      window.removeEventListener("popstate", syncRoute);
+    };
+  }, []);
+
+  const slug = route.replace(/^\/project\/?/, "").replace(/\/$/, "");
   const project = slug ? projects.find((item) => item.slug === slug) : null;
 
   if (slug && project) {
@@ -75,6 +84,18 @@ function App() {
   return <Home />;
 }
 
+function getRoute() {
+  if (window.location.hash.startsWith("#/project/")) {
+    return window.location.hash.slice(1);
+  }
+
+  const currentPath = window.location.pathname.startsWith(basePath)
+    ? window.location.pathname.slice(basePath.length) || "/"
+    : window.location.pathname;
+
+  return currentPath.startsWith("/project/") ? currentPath : "/";
+}
+
 function Header() {
   const [open, setOpen] = React.useState(false);
   const [activeHash, setActiveHash] = React.useState(window.location.hash || "#top");
@@ -84,7 +105,6 @@ function Header() {
     ["项目", "#projects"],
     ["经历", "#timeline"],
     ["问答", "#assistant"],
-    ["作品", "#review"],
     ["关于我", "#education"],
   ];
 
@@ -207,17 +227,6 @@ function Home() {
           </article>
         </section>
 
-        <section className="section review-section" id="review">
-          <SectionTitle title="简历丰富建议" />
-          <div className="review-grid">
-            {resume.recruiterNotes.map((note) => (
-              <article key={note.title}>
-                <h3>{note.title}</h3>
-                <p>{note.text}</p>
-              </article>
-            ))}
-          </div>
-        </section>
       </main>
       <FloatingAssistant assistant={assistant} />
       <Footer />
@@ -606,6 +615,8 @@ function SectionTitle({ title, text }) {
 }
 
 function ProjectCard({ project }) {
+  const detailHref = `${basePath}/#/project/${project.slug}`;
+
   return (
     <article className="project-card">
       <div className="project-icon"><Code2 size={28} /></div>
@@ -615,13 +626,13 @@ function ProjectCard({ project }) {
       <h3>{project.name}</h3>
       <p>{project.summary}</p>
       <div className="project-actions">
-        <a className="project-link" href={`${basePath}/project/${project.slug}`}>
+        <a className="project-link" href={detailHref}>
           查看详情 <ArrowUpRight size={15} />
         </a>
-        <a className="project-link muted" href={`${basePath}/project/${project.slug}`}>
+        <a className="project-link muted" href={detailHref}>
           <PlayCircle size={15} /> 演示
         </a>
-        <a className="project-link muted" href={`${basePath}/project/${project.slug}`}>
+        <a className="project-link muted" href={detailHref}>
           <Camera size={15} /> 截图
         </a>
       </div>
@@ -633,7 +644,7 @@ function ProjectDetail({ project }) {
   return (
     <>
       <header className="detail-header">
-        <a href={`${basePath}/`} className="back-link"><ArrowLeft size={18} /> 返回首页</a>
+        <a href={`${basePath}/#projects`} className="back-link"><ArrowLeft size={18} /> 返回首页</a>
         <a href={`mailto:${resume.email}`} className="secondary-action"><Mail size={18} /> 联系候选人</a>
       </header>
       <main className="detail-main">
