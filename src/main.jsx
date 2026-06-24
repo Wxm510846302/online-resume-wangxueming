@@ -143,7 +143,11 @@ function Header() {
             {label}
           </a>
         ))}
-        <a className="nav-cta" href={`mailto:${resume.email}`}>
+        <a
+          className="nav-cta"
+          href={`${basePath}/wangxueming-resume.pdf`}
+          download="王学明开发岗个人简历v2.5.2.pdf"
+        >
           下载简历 PDF
         </a>
       </nav>
