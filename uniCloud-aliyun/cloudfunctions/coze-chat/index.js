@@ -96,7 +96,8 @@ function parseRequestBody(event) {
 }
 
 function parseCozeAnswer(text) {
-  let answer = "";
+  let deltaAnswer = "";
+  let completedAnswer = "";
   for (const block of text.split(/\n\n+/)) {
     const event = readSseField(block, "event");
     if (event !== "conversation.message.delta" && event !== "conversation.message.completed") continue;
@@ -111,11 +112,15 @@ function parseCozeAnswer(text) {
         payload.type === "answer" &&
         typeof payload.content === "string"
       ) {
-        answer += payload.content;
+        if (event === "conversation.message.completed") {
+          completedAnswer = payload.content;
+        } else {
+          deltaAnswer += payload.content;
+        }
       }
     } catch {}
   }
-  return answer.trim();
+  return (completedAnswer || deltaAnswer).trim();
 }
 
 function readSseField(block, fieldName) {

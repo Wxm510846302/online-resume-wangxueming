@@ -6,9 +6,9 @@ This project can use uniCloud as the server-side Coze proxy for GitHub Pages.
 
 1. Open this project in HBuilderX.
 2. Associate a uniCloud service space.
-3. Upload `uniCloud/cloudfunctions/coze-chat`.
-4. In the uniCloud console, enable URL access for the function path `/coze-chat`.
-5. Configure cloud function environment variables:
+3. Upload `uniCloud-aliyun/cloudfunctions/coze-chat`.
+4. In the uniCloud console, confirm URL access for the function path `/coze-chat`.
+5. Configure cloud function environment variables, or inject them during upload from a local ignored file:
 
 ```text
 COZE_API_TOKEN=your_coze_token
@@ -18,13 +18,13 @@ ALLOWED_ORIGIN=https://wxm510846302.github.io
 
 ## GitHub Pages
 
-Set a GitHub repository variable:
+The GitHub Pages workflow currently builds with this public proxy URL:
 
 ```text
-VITE_COZE_PROXY_PATH=https://your-unicloud-domain/coze-chat
+VITE_COZE_PROXY_PATH=https://fc-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/coze-chat
 ```
 
-Then rerun the GitHub Pages workflow or push a new commit.
+Push a new commit to rerun the GitHub Pages workflow.
 
 ## Conversation Logs
 
