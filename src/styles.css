@@ -1486,6 +1486,21 @@ section[id] {
   background: #1487e8;
 }
 
+.assistant-prompt-random {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #172638 !important;
+  border-color: #c9d8e6 !important;
+  background: #ffffff !important;
+}
+
+.assistant-prompt-random:hover {
+  color: #ffffff !important;
+  border-color: #172638 !important;
+  background: #172638 !important;
+}
+
 .assistant-chat {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
@@ -1605,6 +1620,10 @@ section[id] {
   min-height: 30px;
   padding: 0 9px;
   font-size: 12px;
+}
+
+.assistant-chat > .assistant-prompt-list .assistant-prompt-random {
+  padding: 0 8px;
 }
 
 .assistant-message {

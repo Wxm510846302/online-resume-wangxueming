@@ -1,6 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { ArrowLeft, ArrowUpRight, Blocks, BriefcaseBusiness, CalendarClock, Camera, CheckCircle2, Code2, Cpu, FileText, Gauge, Gamepad2, Github, Mail, MapPin, Menu, PackageCheck, Phone, PlayCircle, Send, ShieldCheck, Sparkles, TimerReset, UserCog, X } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Blocks, BriefcaseBusiness, CalendarClock, Camera, CheckCircle2, Code2, Cpu, FileText, Gauge, Gamepad2, Github, Mail, MapPin, Menu, PackageCheck, Phone, PlayCircle, Send, ShieldCheck, Shuffle, Sparkles, TimerReset, UserCog, X } from "lucide-react";
 import { resume, projects } from "./data/resume.js";
 import { parseCozeSseChunk } from "./utils/cozeStream.js";
 import aiAvatar from "./assets/images/avatar-ai.png?avatar-ai-v1";
@@ -33,7 +33,20 @@ const assistantPrompts = [
   "你做过哪些能直接影响业务指标的优化？",
   "你如何保障版本质量和线上稳定性？",
   "你相比普通前端或客户端开发强在哪里？",
-  "如果入职后 3 个月，你能带来什么价值？"
+  "如果入职后 3 个月，你能带来什么价值？",
+  "你能胜任技术负责人岗位的依据是什么？",
+  "你如何从 0 到 1 搭建一个 App 项目？",
+  "你怎么设计一个可长期维护的 SDK？",
+  "你如何排查线上 Crash 和内存泄漏？",
+  "你如何处理支付、登录、分享这类核心链路？",
+  "你如何推动前端、客户端和后端协作？",
+  "你如何用 AI 工具提升研发效率？",
+  "你有哪些 Web3 或 AI 相关项目经验？",
+  "你过去最能体现 Owner 意识的项目是什么？",
+  "你如何评估一个复杂需求的排期和风险？",
+  "你能为团队建立哪些工程规范？",
+  "你如何让业务方看到技术投入的价值？",
+  "你最适合高薪岗位的核心竞争力是什么？"
 ];
 
 const assistantReplies = {
@@ -274,15 +287,34 @@ function AssistantSection({ assistant }) {
 }
 
 function PromptButtons({ onAsk }) {
+  const [visiblePrompts, setVisiblePrompts] = React.useState(() => getRandomPrompts());
+
   return (
     <div className="assistant-prompt-list" aria-label="快捷问题">
-      {assistantPrompts.map((prompt) => (
-        <button type="button" key={prompt} onClick={() => onAsk?.(prompt)}>
+      {visiblePrompts.map((prompt) => (
+        <button className="assistant-prompt-button" type="button" key={prompt} onClick={() => onAsk?.(prompt)}>
           {prompt}
         </button>
       ))}
+      <button
+        className="assistant-prompt-random"
+        type="button"
+        aria-label="随机换一组快捷问题"
+        onClick={() => setVisiblePrompts(getRandomPrompts(visiblePrompts))}
+        title="换一组"
+      >
+        <Shuffle size={15} />
+        <span>换一组</span>
+      </button>
     </div>
   );
+}
+
+function getRandomPrompts(previous = []) {
+  const shuffled = [...assistantPrompts].sort(() => Math.random() - 0.5);
+  const next = shuffled.filter((prompt) => !previous.includes(prompt)).slice(0, 4);
+  if (next.length === 4) return next;
+  return [...next, ...shuffled.filter((prompt) => !next.includes(prompt)).slice(0, 4 - next.length)];
 }
 
 function useAssistantChat() {
