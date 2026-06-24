@@ -61,7 +61,12 @@ exports.main = async function (event = {}, context = {}) {
     return response(cozeRes.status, { error: "Coze API request failed", detail: rawText }, origin);
   }
 
-  const answer = parseCozeAnswer(rawText);
+  let answer = "";
+  try {
+    answer = parseCozeAnswer(rawText);
+  } catch (error) {
+    return response(502, { error: "Coze API stream failed", detail: error.message }, origin);
+  }
   if (!answer) {
     return response(502, { error: "Coze did not return answer text" }, origin);
   }
@@ -100,13 +105,21 @@ function parseCozeAnswer(text) {
   let completedAnswer = "";
   for (const block of text.split(/\n\n+/)) {
     const event = readSseField(block, "event");
-    if (event !== "conversation.message.delta" && event !== "conversation.message.completed") continue;
+    if (
+      event !== "conversation.message.delta" &&
+      event !== "conversation.message.completed" &&
+      event !== "conversation.chat.failed"
+    ) continue;
 
     const data = readSseField(block, "data");
     if (!data || data === "[DONE]") continue;
 
     try {
       const payload = JSON.parse(data);
+      if (event === "conversation.chat.failed") {
+        const message = payload.last_error?.msg || payload.error?.message || "Conversation failed";
+        throw new Error(message);
+      }
       if (
         payload.role === "assistant" &&
         payload.type === "answer" &&
@@ -118,7 +131,9 @@ function parseCozeAnswer(text) {
           deltaAnswer += payload.content;
         }
       }
-    } catch {}
+    } catch (error) {
+      if (event === "conversation.chat.failed") throw error;
+    }
   }
   return (completedAnswer || deltaAnswer).trim();
 }
