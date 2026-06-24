@@ -257,7 +257,7 @@ function AssistantSection({ assistant }) {
             <h2>AI 问答助手</h2>
           </div>
           <p>
-            用对话方式了解我的虚拟分身。当前版本已接入 Coze 智能体，适合快速了解岗位匹配、项目经验和技术强项。
+            用对话方式了解我的虚拟分身。当前版本已接入智能体，适合快速了解岗位匹配、项目经验和技术强项。
           </p>
         </div>
         <AssistantChat assistant={assistant} compact={false} />
@@ -371,7 +371,7 @@ function AssistantChat({ assistant, compact = false }) {
           <img src={aiAvatar} alt="王学明 AI 分身头像" />
           <div>
             <strong>王学明 AI 分身</strong>
-            <span>Coze 智能体 · 流式问答</span>
+            <span>知无不言</span>
           </div>
         </div>
         <span className={`assistant-status assistant-status-${serviceState}`}>

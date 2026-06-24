@@ -8,7 +8,7 @@ export const resume = {
   gitee: "https://gitee.com/xuemingwang",
   twitter: "https://x.com/XM_LKWeb3Team",
   summary:
-    "10 年移动端与跨端开发经验，覆盖 iOS、Flutter Add-to-App、微信小程序、WebView/H5、运营后台、游戏 SDK、Web3 数据平台与 AI 工具链。既能独立从 0 到 1 搭建产品，也能承担客户端技术方案、团队排期、跨端协作和交付风险控制。",
+    "10 年移动端与跨端开发经验，覆盖 iOS、Flutter App、微信小程序、WebView/H5、运营后台、游戏 SDK、Web3 数据平台与 AI 工具链。既能独立从 0 到 1 搭建产品，也能承担客户端技术方案、团队排期、跨端协作和交付风险控制。",
   metrics: [
     { value: "10+ 年", label: "开发经验" },
     { value: "5 年", label: "技术管理经验" },
@@ -28,7 +28,7 @@ export const resume = {
       icon: "bridge",
       title: "跨端与桥接",
       text: "长期处理 WKWebView、JSBridge、MethodChannel、原生 SDK、Unity/自研引擎与 App 宿主工程之间的通信和能力对齐，熟悉 HTTP/HTTPS/TCP/UDP 网络协议。",
-      tags: ["WKWebView", "Flutter Add-to-App", "MethodChannel", "Unity SDK", "H5 活动", "HTTP/HTTPS/TCP/UDP"],
+      tags: ["WKWebView", "Flutter App", "MethodChannel", "Unity SDK", "H5 活动", "HTTP/HTTPS/TCP/UDP"],
     },
     {
       icon: "architecture",
@@ -60,7 +60,7 @@ export const resume = {
       period: "2025.07 - 今",
       company: "开开华彩",
       role: "产研团队 · 客户端开发组长",
-      focus: "Flutter Add-to-App、微信小程序、运营后台、音视频、IM、支付与团队交付",
+      focus: "Flutter App、微信小程序、运营后台、音视频、IM、支付与团队交付",
     },
     {
       period: "2024.12 - 2025.04",
@@ -121,8 +121,8 @@ export const projects = [
     period: "2025.07 - 今",
     role: "客户端开发组长",
     summary:
-      "公司战略级产品，负责 Flutter Add-to-App 跨端业务、微信小程序、运营后台、H5 活动和客户端团队交付，覆盖课程、作业、订单、直播、支付、IM、音视频等核心业务域。",
-    stack: ["Flutter", "Add-to-App", "go_router", "dio", "provider", "get_it", "MethodChannel", "微信小程序", "运营后台"],
+      "公司战略级产品，负责 Flutter App 跨端业务、微信小程序、运营后台、H5 活动和客户端团队交付，覆盖课程、作业、订单、直播、支付、IM、音视频等核心业务域。",
+    stack: ["Flutter", "App", "go_router", "dio", "provider", "get_it", "MethodChannel", "微信小程序", "运营后台"],
     background: [
       "面向银发族兴趣学习和同好社交，业务横跨 App、小程序、后台、直播、支付和活动页。",
       "原生 Android、iOS、鸿蒙宿主需要复用 Flutter 业务能力，同时保持推送、微信、支付、权限、音视频等原生能力一致。",
@@ -139,7 +139,7 @@ export const projects = [
       "建议补充：当前 App 版本周期、活跃用户、课程/订单规模、支付成功率、直播稳定性或故障率等指标。",
     ],
     interviewAngles: [
-      "重点讲 Add-to-App 在多宿主工程中的边界划分、路由、依赖注入和原生能力治理。",
+      "重点讲 App 在多宿主工程中的边界划分、路由、依赖注入和原生能力治理。",
       "准备一个 MethodChannel 案例：从 H5/Flutter 到原生支付或音视频能力的完整调用链。",
       "解释如何作为组长管理跨端排期、风险和版本质量。",
     ],
