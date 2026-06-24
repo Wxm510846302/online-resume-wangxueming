@@ -318,13 +318,15 @@ function useAssistantChat() {
       await streamAssistantReply(trimmed, assistantId, controller.signal, setMessages);
       setServiceState("ready");
     } catch (error) {
+      if (controller.signal.aborted) return;
       const fallback = getAssistantReply(trimmed);
-      setMessages((current) =>
-        updateMessage(current, assistantId, {
-          text: `真实 AI 暂时未连通：${error.message || "请求失败"}\n\n先给你一版本地简历兜底回答：${fallback}`,
-          pending: false,
-          error: true,
-        }),
+      const fallbackText = `真实 AI 暂时未连通：${error.message || "请求失败"}\n\n先给你一版本地简历兜底回答：${fallback}`;
+      await typeAssistantText(
+        assistantId,
+        fallbackText,
+        setMessages,
+        controller.signal,
+        { error: true },
       );
       setServiceState("offline");
     } finally {
@@ -380,7 +382,7 @@ function AssistantChat({ assistant, compact = false }) {
       </div>
       <div className="assistant-messages" ref={chatLogRef} aria-live="polite">
         {messages.map((message) => (
-          <div className={`assistant-message ${message.role}${message.error ? " is-error" : ""}${message.pending ? " is-pending" : ""}`} key={message.id}>
+          <div className={`assistant-message ${message.role}${message.error ? " is-error" : ""}${message.pending ? " is-pending" : ""}${message.typing ? " is-typing" : ""}`} key={message.id}>
             <span className="assistant-avatar">
               {message.role === "assistant" ? <img src={aiAvatar} alt="" /> : <UserCog size={15} />}
             </span>
@@ -441,13 +443,7 @@ async function streamAssistantReply(question, assistantId, signal, setMessages) 
     if (!answer) {
       throw new Error(payload?.error || "AI 接口没有返回可展示内容");
     }
-    setMessages((current) =>
-      updateMessage(current, assistantId, (message) => ({
-        ...message,
-        text: answer,
-        pending: false,
-      })),
-    );
+    await typeAssistantText(assistantId, answer, setMessages, signal);
     return;
   }
 
@@ -470,32 +466,76 @@ async function streamAssistantReply(question, assistantId, signal, setMessages) 
     if (!text) continue;
 
     hasContent = true;
-    setMessages((current) =>
-      updateMessage(current, assistantId, (message) => ({
-        ...message,
-        text: message.pending ? text : `${message.text}${text}`,
-        pending: false,
-      })),
-    );
+    await typeAssistantText(assistantId, text, setMessages, signal, { append: true });
   }
 
   if (buffer.trim()) {
     const { text } = parseCozeSseChunk(buffer);
     if (text) {
       hasContent = true;
-      setMessages((current) =>
-        updateMessage(current, assistantId, (message) => ({
-          ...message,
-          text: message.pending ? text : `${message.text}${text}`,
-          pending: false,
-        })),
-      );
+      await typeAssistantText(assistantId, text, setMessages, signal, { append: true });
     }
   }
 
   if (!hasContent) {
     throw new Error("Coze 没有返回可展示内容");
   }
+}
+
+async function typeAssistantText(
+  assistantId,
+  text,
+  setMessages,
+  signal,
+  { append = false, error = false } = {},
+) {
+  const chars = Array.from(text);
+  if (!chars.length) return;
+
+  setMessages((current) =>
+    updateMessage(current, assistantId, (message) => ({
+      ...message,
+      text: append && !message.pending ? message.text : "",
+      pending: false,
+      typing: true,
+      error: error || message.error,
+    })),
+  );
+
+  for (const char of chars) {
+    if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+    setMessages((current) =>
+      updateMessage(current, assistantId, (message) => ({
+        ...message,
+        text: `${message.text}${char}`,
+        pending: false,
+        typing: true,
+      })),
+    );
+    await waitForTypewriterDelay(char, signal);
+  }
+
+  setMessages((current) =>
+    updateMessage(current, assistantId, (message) => ({
+      ...message,
+      typing: false,
+    })),
+  );
+}
+
+function waitForTypewriterDelay(char, signal) {
+  const delay = /[。！？!?；;：:\n]/.test(char) ? 90 : 18;
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(resolve, delay);
+    signal.addEventListener(
+      "abort",
+      () => {
+        window.clearTimeout(timer);
+        reject(new DOMException("Aborted", "AbortError"));
+      },
+      { once: true },
+    );
+  });
 }
 
 function updateMessage(messages, id, patchOrUpdater) {

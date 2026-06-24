@@ -1179,6 +1179,18 @@ section[id] {
   }
 }
 
+@keyframes typingCursor {
+  0%,
+  45% {
+    opacity: 1;
+  }
+
+  46%,
+  100% {
+    opacity: 0;
+  }
+}
+
 .metrics {
   grid-template-columns: repeat(6, 1fr);
   gap: 0;
@@ -1627,6 +1639,17 @@ section[id] {
 .assistant-message.is-error p {
   color: #7f1d1d;
   background: #fff2f0;
+}
+
+.assistant-message.is-typing p::after {
+  content: "";
+  display: inline-block;
+  width: 1px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.12em;
+  background: currentColor;
+  animation: typingCursor 0.9s steps(2, start) infinite;
 }
 
 .assistant-input-row {
