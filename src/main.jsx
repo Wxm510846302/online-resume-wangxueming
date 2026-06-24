@@ -24,7 +24,7 @@ const metricIcons = [CalendarClock, UserCog, Blocks, Gauge, Gamepad2, PackageChe
 
 const assistantPrompts = [
   "你最适合什么岗位？",
-  "介绍一下 Flutter Add-to-App 经验",
+  "介绍一下 Flutter App 经验",
   "讲讲性能优化成果",
   "有哪些 SDK 和支付经验？",
 ];
@@ -33,9 +33,9 @@ const assistantReplies = {
   default:
     "我是王学明的虚拟分身，可以围绕岗位匹配、跨端架构、iOS/Flutter/小程序、SDK、性能优化和项目经历回答。你可以问我：适合什么岗位、做过哪些项目、如何处理复杂跨端交付。",
   role:
-    "我更适合高级前端全栈、客户端跨端负责人、Flutter Add-to-App / iOS 技术负责人、SDK 架构与复杂业务交付类岗位。优势是既能做客户端深水区问题，也能把 H5、小程序、Flutter、原生 SDK 和后台协作串起来。",
+    "我更适合高级前端全栈、客户端跨端负责人、Flutter App / iOS 技术负责人、SDK 架构与复杂业务交付类岗位。优势是既能做客户端深水区问题，也能把 H5、小程序、Flutter、原生 SDK 和后台协作串起来。",
   flutter:
-    "在开开华彩项目中，我负责 Flutter Add-to-App 业务模块和原生宿主协同，覆盖课程、作业、订单、直播、支付、IM、音视频等业务域。核心经验包括 go_router、dio、provider、get_it、MethodChannel/native_channel，以及多宿主下的原生能力桥接和版本交付。",
+    "在开开华彩项目中，我负责 Flutter App 业务模块和原生宿主协同，覆盖课程、作业、订单、直播、支付、IM、音视频等业务域。核心经验包括 go_router、dio、provider、get_it、MethodChannel/native_channel，以及多宿主下的原生能力桥接和版本交付。",
   performance:
     "我有 iOS 性能与稳定性经验，熟悉 ARC/MRC、Runtime、RunLoop、多线程和 Instruments 工具链。项目里做过启动耗时优化、弱网体验、WebView 离线缓存、Crash 收敛等工作，简历中当前突出指标包括启动耗时优化 35%、Debug 效率提升 40%、课件体验优化带来日活提升 150%。",
   sdk:
@@ -315,12 +315,13 @@ function useAssistantChat() {
     abortRef.current = controller;
 
     try {
-      await streamAssistantReply(trimmed, assistantId, controller.signal, setMessages);
+      await streamAssistantReply(trimmed, assistantId, controller.signal, setMessages, setServiceState);
       setServiceState("ready");
     } catch (error) {
       if (controller.signal.aborted) return;
       const fallback = getAssistantReply(trimmed);
       const fallbackText = `真实 AI 暂时未连通：${error.message || "请求失败"}\n\n先给你一版本地简历兜底回答：${fallback}`;
+      setServiceState("replying");
       await typeAssistantText(
         assistantId,
         fallbackText,
@@ -377,7 +378,7 @@ function AssistantChat({ assistant, compact = false }) {
           </div>
         </div>
         <span className={`assistant-status assistant-status-${serviceState}`}>
-          {serviceState === "thinking" ? "思考中" : serviceState === "offline" ? "未连通" : "在线"}
+          {serviceState === "thinking" ? "思考中" : serviceState === "replying" ? "回复中" : serviceState === "offline" ? "未连通" : "在线"}
         </span>
       </div>
       <div className="assistant-messages" ref={chatLogRef} aria-live="polite">
@@ -418,7 +419,7 @@ function AssistantChat({ assistant, compact = false }) {
   );
 }
 
-async function streamAssistantReply(question, assistantId, signal, setMessages) {
+async function streamAssistantReply(question, assistantId, signal, setMessages, setServiceState) {
   const response = await fetch(cozeApiPath, {
     method: "POST",
     headers: {
@@ -443,6 +444,7 @@ async function streamAssistantReply(question, assistantId, signal, setMessages) 
     if (!answer) {
       throw new Error(payload?.error || "AI 接口没有返回可展示内容");
     }
+    setServiceState("replying");
     await typeAssistantText(assistantId, answer, setMessages, signal);
     return;
   }
@@ -466,6 +468,7 @@ async function streamAssistantReply(question, assistantId, signal, setMessages) 
     if (!text) continue;
 
     hasContent = true;
+    setServiceState("replying");
     await typeAssistantText(assistantId, text, setMessages, signal, { append: true });
   }
 
@@ -473,6 +476,7 @@ async function streamAssistantReply(question, assistantId, signal, setMessages) 
     const { text } = parseCozeSseChunk(buffer);
     if (text) {
       hasContent = true;
+      setServiceState("replying");
       await typeAssistantText(assistantId, text, setMessages, signal, { append: true });
     }
   }
@@ -612,7 +616,7 @@ function FloatingAssistant({ assistant }) {
 function SkillMatrix() {
   const rows = [
     ["前端 / 跨端", "TypeScript", "React", "Vue 3", "Flutter", "小程序"],
-    ["客户端", "iOS (Swift)", "Flutter Add-to-App", "WebView", "性能优化", "SDK"],
+    ["客户端", "iOS (Swift)", "Flutter App", "WebView", "性能优化", "SDK"],
     ["后端 / 全栈", "Node.js", "Python", "GraphQL", "接口设计", "自动化脚本"],
     ["数据 / 存储", "SQLite", "FMDB", "CoreData", "MySQL", "Redis"],
     ["工程化 / 工具", "Vite", "CocoaPods", "CI/CD", "Git", "ESLint"],

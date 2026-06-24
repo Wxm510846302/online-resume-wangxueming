@@ -1191,6 +1191,25 @@ section[id] {
   }
 }
 
+@keyframes thinkingDots {
+  0% {
+    content: "";
+  }
+
+  25% {
+    content: ".";
+  }
+
+  50% {
+    content: "..";
+  }
+
+  75%,
+  100% {
+    content: "...";
+  }
+}
+
 .metrics {
   grid-template-columns: repeat(6, 1fr);
   gap: 0;
@@ -1549,6 +1568,16 @@ section[id] {
   animation: statusPulse 1.1s ease-in-out infinite;
 }
 
+.assistant-status-replying {
+  color: #0b6fba !important;
+  background: #e9f5ff;
+}
+
+.assistant-status-replying::before {
+  background: #1498ff;
+  animation: statusPulse 0.9s ease-in-out infinite;
+}
+
 .assistant-status-offline {
   color: #b42318 !important;
   background: #fff0ed;
@@ -1634,6 +1663,11 @@ section[id] {
 .assistant-message.is-pending p {
   color: #536170;
   background: #f7fafc;
+}
+
+.assistant-message.is-pending p::after {
+  content: "";
+  animation: thinkingDots 1.2s steps(4, end) infinite;
 }
 
 .assistant-message.is-error p {
