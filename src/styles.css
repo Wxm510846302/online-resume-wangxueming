@@ -1744,6 +1744,15 @@ section[id] {
     #f8fbff;
 }
 
+.assistant-intro-stage.is-collapsed {
+  min-height: 46px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  background:
+    linear-gradient(135deg, rgba(20, 152, 255, 0.05), rgba(255, 255, 255, 0.82) 58%),
+    #fbfdff;
+}
+
 .assistant-intro-copy {
   display: grid;
   min-width: 0;
@@ -1755,6 +1764,20 @@ section[id] {
   color: #273545;
   font-size: 13px;
   line-height: 1.42;
+}
+
+.assistant-intro-stage.is-collapsed .assistant-intro-copy {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.assistant-intro-stage.is-collapsed .assistant-intro-copy p {
+  color: #607186;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .assistant-wave {
@@ -1816,6 +1839,32 @@ section[id] {
 .assistant-voice-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+.assistant-intro-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.assistant-intro-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border: 1px solid #c9d8e6;
+  border-radius: 8px;
+  color: #172638;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.assistant-intro-toggle:hover {
+  color: #ffffff;
+  border-color: #1498ff;
+  background: #1498ff;
 }
 
 .assistant-messages {
@@ -2808,9 +2857,34 @@ section[id] {
     padding: 10px 12px;
   }
 
+  .assistant-intro-stage.is-collapsed {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
   .assistant-intro-copy p {
     font-size: 12px;
     line-height: 1.38;
+  }
+
+  .assistant-intro-stage.is-collapsed .assistant-intro-copy p {
+    font-size: 11px;
+  }
+
+  .assistant-intro-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 32px;
+    width: 100%;
+  }
+
+  .assistant-intro-stage.is-collapsed .assistant-intro-actions {
+    width: auto;
+    grid-template-columns: 32px;
+  }
+
+  .assistant-intro-stage.is-collapsed .assistant-voice-button {
+    display: none;
   }
 
   .assistant-voice-button {

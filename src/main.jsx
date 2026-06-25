@@ -1,6 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { ArrowLeft, ArrowUpRight, Blocks, BriefcaseBusiness, CalendarClock, Camera, CheckCircle2, Code2, Copy, Cpu, FileText, Gauge, Gamepad2, Github, Mail, MapPin, Menu, MessageCircle, PackageCheck, Phone, PlayCircle, RefreshCw, Send, ShieldCheck, Shuffle, Sparkles, Square, TimerReset, UserCog, Volume2, X } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Blocks, BriefcaseBusiness, CalendarClock, Camera, CheckCircle2, ChevronDown, ChevronUp, Code2, Copy, Cpu, FileText, Gauge, Gamepad2, Github, Mail, MapPin, Menu, MessageCircle, PackageCheck, Phone, PlayCircle, RefreshCw, Send, ShieldCheck, Shuffle, Sparkles, Square, TimerReset, UserCog, Volume2, X } from "lucide-react";
 import { resume, projects } from "./data/resume.js";
 import { parseCozeSseChunk } from "./utils/cozeStream.js";
 import aiAvatar from "./assets/images/avatar-ai.png?avatar-ai-v1";
@@ -741,8 +741,10 @@ function useAssistantChat() {
 
 function AssistantChat({ assistant, compact = false }) {
   const [input, setInput] = React.useState("");
+  const [introCollapsed, setIntroCollapsed] = React.useState(false);
   const chatLogRef = React.useRef(null);
   const inputRef = React.useRef(null);
+  const lastScrollTopRef = React.useRef(0);
   const {
     ask,
     clearFollowUpContext,
@@ -767,6 +769,7 @@ function AssistantChat({ assistant, compact = false }) {
     const log = chatLogRef.current;
     if (log) {
       log.scrollTop = log.scrollHeight;
+      lastScrollTopRef.current = log.scrollTop;
     }
   }, [messages]);
 
@@ -787,6 +790,21 @@ function AssistantChat({ assistant, compact = false }) {
     }
   };
 
+  const handleMessageScroll = React.useCallback((event) => {
+    const nextScrollTop = event.currentTarget.scrollTop;
+    const delta = nextScrollTop - lastScrollTopRef.current;
+
+    if (Math.abs(delta) < 12) return;
+
+    if (delta > 0) {
+      setIntroCollapsed(true);
+    } else {
+      setIntroCollapsed(false);
+    }
+
+    lastScrollTopRef.current = nextScrollTop;
+  }, []);
+
   return (
     <div className={compact ? "assistant-chat assistant-chat-floating" : "assistant-chat"} aria-label="AI 虚拟分身聊天窗口">
       <div className="assistant-chat-head">
@@ -802,13 +820,15 @@ function AssistantChat({ assistant, compact = false }) {
         </span>
       </div>
       <AssistantIntroStage
+        collapsed={introCollapsed}
         hasPlayed={hasPlayedIntro}
         introText={introText}
         isPreparing={isIntroPreparing}
         isSpeaking={isIntroSpeaking}
         onPlayIntro={playIntro}
+        onToggleCollapsed={() => setIntroCollapsed((current) => !current)}
       />
-      <div className="assistant-messages" ref={chatLogRef} aria-live="polite">
+      <div className="assistant-messages" ref={chatLogRef} onScroll={handleMessageScroll} aria-live="polite">
         {messages.map((message) => (
           <div className={`assistant-message ${message.role}${message.error ? " is-error" : ""}${message.pending ? " is-pending" : ""}${message.typing ? " is-typing" : ""}`} key={message.id}>
             <span className="assistant-avatar">
@@ -877,11 +897,12 @@ function AssistantChat({ assistant, compact = false }) {
   );
 }
 
-function AssistantIntroStage({ hasPlayed, introText, isPreparing, isSpeaking, onPlayIntro }) {
+function AssistantIntroStage({ collapsed, hasPlayed, introText, isPreparing, isSpeaking, onPlayIntro, onToggleCollapsed }) {
   const buttonLabel = isPreparing ? "准备音色中" : isSpeaking ? "停止播放" : hasPlayed ? "换一段" : "播放自我介绍";
+  const toggleLabel = collapsed ? "展开自我介绍" : "收起自我介绍";
 
   return (
-    <div className={`assistant-intro-stage${isSpeaking ? " is-speaking" : ""}`}>
+    <div className={`assistant-intro-stage${isSpeaking ? " is-speaking" : ""}${collapsed ? " is-collapsed" : ""}`}>
       <div className="assistant-intro-copy">
         <div className="assistant-wave" aria-hidden="true">
           <span />
@@ -889,19 +910,31 @@ function AssistantIntroStage({ hasPlayed, introText, isPreparing, isSpeaking, on
           <span />
           <span />
         </div>
-        <p>{introText}</p>
+        <p>{collapsed ? "自我介绍已收起，向下滚动聊天记录或点击右侧按钮可展开。" : introText}</p>
       </div>
-      <button
-        className="assistant-voice-button"
-        type="button"
-        disabled={isPreparing}
-        onClick={onPlayIntro}
-        title={buttonLabel}
-        aria-label={buttonLabel}
-      >
-        {isSpeaking ? <Square size={15} /> : <Volume2 size={15} />}
-        <span>{buttonLabel}</span>
-      </button>
+      <div className="assistant-intro-actions">
+        <button
+          className="assistant-voice-button"
+          type="button"
+          disabled={isPreparing}
+          onClick={onPlayIntro}
+          title={buttonLabel}
+          aria-label={buttonLabel}
+        >
+          {isSpeaking ? <Square size={15} /> : <Volume2 size={15} />}
+          <span>{buttonLabel}</span>
+        </button>
+        <button
+          className="assistant-intro-toggle"
+          type="button"
+          onClick={onToggleCollapsed}
+          title={toggleLabel}
+          aria-label={toggleLabel}
+          aria-expanded={!collapsed}
+        >
+          {collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+        </button>
+      </div>
     </div>
   );
 }
