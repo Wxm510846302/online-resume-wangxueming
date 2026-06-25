@@ -1,10 +1,14 @@
 "use strict";
 
+const fs = require("fs");
+const path = require("path");
+
 const COZE_CHAT_URL = "https://api.coze.cn/v3/chat";
 const COZE_SPEECH_URL = "https://api.coze.cn/v1/audio/speech";
 const DEFAULT_COZE_VOICE_ID = "7426725529589645339";
 const DEFAULT_BOT_ID = "7654798932023181327";
 const DEFAULT_ALLOWED_ORIGIN = "https://wxm510846302.github.io";
+const LOCAL_ENV = loadLocalEnv();
 
 exports.main = async function (event = {}, context = {}) {
   const origin = getHeader(event, "origin");
@@ -17,7 +21,7 @@ exports.main = async function (event = {}, context = {}) {
     return response(405, { error: "Method not allowed" }, origin);
   }
 
-  const token = process.env.COZE_API_TOKEN || process.env.COZE_ACCESS_TOKEN;
+  const token = getConfigValue("COZE_API_TOKEN") || getConfigValue("COZE_ACCESS_TOKEN");
   if (!token) {
     return response(500, { error: "Coze API token is not configured" }, origin);
   }
@@ -110,7 +114,7 @@ async function handleSpeechRequest(body, token, origin) {
       input: input.slice(0, 1000),
       voice_id: getVoiceId(),
       response_format: "mp3",
-      speed: Number(process.env.COZE_SPEECH_SPEED || 1),
+      speed: Number(getConfigValue("COZE_SPEECH_SPEED") || 1),
     },
   });
 
@@ -218,7 +222,7 @@ function response(statusCode, body, origin) {
 }
 
 function getAllowedOrigin(origin) {
-  const configured = process.env.ALLOWED_ORIGIN || DEFAULT_ALLOWED_ORIGIN;
+  const configured = getConfigValue("ALLOWED_ORIGIN") || DEFAULT_ALLOWED_ORIGIN;
   if (!origin) return configured;
   if (origin === configured || origin.startsWith("http://localhost:")) return origin;
   return configured;
@@ -245,13 +249,27 @@ function buildUserId(event) {
 }
 
 function getBotId() {
-  const envBotId = safeId(process.env.COZE_BOT_ID);
+  const envBotId = safeId(getConfigValue("COZE_BOT_ID"));
   return envBotId && envBotId !== "0" ? envBotId : DEFAULT_BOT_ID;
 }
 
 function getVoiceId() {
-  const envVoiceId = safeNumericId(process.env.COZE_VOICE_ID || process.env.COZE_AGENT_VOICE_ID);
+  const envVoiceId = safeNumericId(getConfigValue("COZE_VOICE_ID") || getConfigValue("COZE_AGENT_VOICE_ID"));
   return envVoiceId && envVoiceId !== "0" ? envVoiceId : DEFAULT_COZE_VOICE_ID;
+}
+
+function getConfigValue(key) {
+  return process.env[key] || LOCAL_ENV[key] || "";
+}
+
+function loadLocalEnv() {
+  try {
+    const file = path.resolve(__dirname, "env.local.json");
+    if (!fs.existsSync(file)) return {};
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return {};
+  }
 }
 
 function safeNumericId(value) {

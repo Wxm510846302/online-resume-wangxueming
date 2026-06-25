@@ -1,6 +1,7 @@
 .env
 .env.*
 !.env.example
+uniCloud-aliyun/cloudfunctions/*/env.local.json
 .DS_Store
 .data/
 node_modules/
