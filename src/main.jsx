@@ -11,6 +11,8 @@ import "./styles.css";
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const cozeApiPath = import.meta.env.VITE_COZE_PROXY_PATH || "/api/coze-chat";
 const cozeSpeechApiPath = import.meta.env.VITE_COZE_SPEECH_PROXY_PATH || cozeApiPath;
+const resumeFilmSrc = `${basePath}/resume-film/wangxueming-resume-intro.mp4`;
+const resumeFilmPoster = `${basePath}/resume-film/wangxueming-resume-intro-poster.png`;
 
 const iconMap = {
   performance: TimerReset,
@@ -186,6 +188,16 @@ function Header() {
 
 function Home() {
   const assistant = useAssistantChat();
+  const [resumeFilmVisible, setResumeFilmVisible] = React.useState(getInitialResumeFilmVisibility);
+
+  const hideResumeFilm = React.useCallback(() => {
+    setResumeFilmVisible(false);
+    try {
+      window.localStorage?.setItem("resume-film", "hidden");
+    } catch {
+      // The section is still hidden for the current session if storage is unavailable.
+    }
+  }, []);
 
   return (
     <>
@@ -237,6 +249,8 @@ function Home() {
           );})}
         </section>
 
+        {resumeFilmVisible ? <ResumeFilmSection onHide={hideResumeFilm} /> : null}
+
         <section className="overview-section section" id="skills">
           <SkillMatrix />
           <TimelineCompact />
@@ -264,6 +278,84 @@ function Home() {
       <FloatingAssistant assistant={assistant} />
       <Footer />
     </>
+  );
+}
+
+function getInitialResumeFilmVisibility() {
+  const params = new URLSearchParams(window.location.search);
+  const forced = params.get("film");
+
+  if (forced === "1" || forced === "true") return true;
+  if (forced === "0" || forced === "false") return false;
+
+  try {
+    return window.localStorage?.getItem("resume-film") !== "hidden";
+  } catch {
+    return true;
+  }
+}
+
+function ResumeFilmSection({ onHide }) {
+  const videoRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return undefined;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.55) {
+          video.play().catch(() => {});
+        } else {
+          video.pause();
+        }
+      },
+      { threshold: [0, 0.35, 0.55, 0.85] },
+    );
+
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <section className="resume-film-section section" id="resume-film" aria-label="简历介绍短片">
+      <div className="resume-film-shell">
+        <div className="resume-film-player">
+          <video
+            ref={videoRef}
+            controls
+            muted
+            playsInline
+            preload="metadata"
+            poster={resumeFilmPoster}
+            src={resumeFilmSrc}
+          >
+            你的浏览器不支持视频播放。
+          </video>
+          <span className="resume-film-badge"><PlayCircle size={16} /> 36 秒介绍短片</span>
+        </div>
+        <div className="resume-film-copy">
+          <span className="section-eyebrow">36s Candidate Snapshot</span>
+          <h2>高级跨端负责人</h2>
+          <p>
+            10+ 年移动端与跨端研发经验，覆盖产品、SDK、支付稳定性与团队交付，可快速评估其技术宽度和落地能力。
+          </p>
+          <ul className="resume-film-points" aria-label="招聘筛选要点">
+            {["百万级产品经验", "50+ SDK 接入治理", "支付掉单率优化"].map((point) => (
+              <li key={point}><CheckCircle2 size={17} /> {point}</li>
+            ))}
+          </ul>
+          <div className="resume-film-actions">
+            <a className="primary-action" href={resumeFilmSrc} target="_blank" rel="noreferrer">
+              查看短片摘要 <ArrowUpRight size={18} />
+            </a>
+            <button className="secondary-action resume-film-hide" type="button" onClick={onHide}>
+              <X size={18} /> 收起短片
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 

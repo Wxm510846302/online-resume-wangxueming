@@ -384,6 +384,143 @@ button {
   font-size: 13px;
 }
 
+.resume-film-section {
+  padding-top: 8px;
+  padding-bottom: 34px;
+}
+
+.resume-film-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.62fr);
+  gap: 22px;
+  align-items: stretch;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(239, 247, 244, 0.9)),
+    radial-gradient(circle at 92% 12%, rgba(0, 166, 178, 0.18), transparent 30%);
+  box-shadow: var(--shadow);
+}
+
+.resume-film-player {
+  position: relative;
+  min-height: 360px;
+  overflow: hidden;
+  border: 1px solid rgba(23, 32, 28, 0.12);
+  border-radius: 8px;
+  background: #10181c;
+}
+
+.resume-film-player video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 360px;
+  object-fit: cover;
+}
+
+.resume-film-badge {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+  background: rgba(23, 32, 28, 0.84);
+  backdrop-filter: blur(12px);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.resume-film-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: 22px 22px 22px 6px;
+}
+
+.section-eyebrow {
+  color: var(--cyan-dark);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.resume-film-copy h2 {
+  margin: 14px 0 0;
+  font-size: clamp(28px, 3.2vw, 44px);
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.resume-film-copy p {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.78;
+}
+
+.resume-film-points {
+  display: grid;
+  gap: 10px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.resume-film-points li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid rgba(8, 121, 130, 0.16);
+  border-radius: 8px;
+  color: var(--graphite);
+  background: rgba(255, 255, 255, 0.62);
+  font-weight: 800;
+}
+
+.resume-film-points svg {
+  flex: 0 0 auto;
+  color: var(--cyan-dark);
+}
+
+.resume-film-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.resume-film-hide {
+  cursor: pointer;
+  font: inherit;
+}
+
+.resume-film-note {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px solid rgba(8, 121, 130, 0.18);
+  border-radius: 8px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.58);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.resume-film-note code {
+  color: var(--graphite);
+  font-weight: 800;
+}
+
 .section {
   padding-top: 72px;
   padding-bottom: 72px;
@@ -2445,6 +2582,79 @@ section[id] {
   .section {
     padding-left: 14px;
     padding-right: 14px;
+  }
+
+  .resume-film-section {
+    padding-top: 2px;
+    padding-bottom: 18px;
+  }
+
+  .resume-film-shell {
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .resume-film-player {
+    min-height: 0;
+    aspect-ratio: 16 / 9;
+    border-radius: 10px;
+  }
+
+  .resume-film-player video {
+    min-height: 0;
+    height: 100%;
+  }
+
+  .resume-film-badge {
+    left: 10px;
+    top: 10px;
+    min-height: 30px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .resume-film-copy {
+    padding: 16px 2px 2px;
+  }
+
+  .resume-film-copy h2 {
+    margin-top: 10px;
+    font-size: 24px;
+    line-height: 1.12;
+  }
+
+  .resume-film-copy p {
+    margin-top: 10px;
+    font-size: 13px;
+    line-height: 1.65;
+  }
+
+  .resume-film-points {
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .resume-film-points li {
+    min-height: 34px;
+    font-size: 13px;
+  }
+
+  .resume-film-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    margin-top: 14px;
+  }
+
+  .resume-film-actions .primary-action,
+  .resume-film-actions .secondary-action {
+    width: 100%;
+  }
+
+  .resume-film-note {
+    margin-top: 12px;
+    font-size: 12px;
   }
 
   .overview-section {

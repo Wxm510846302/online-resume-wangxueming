@@ -6,3 +6,4 @@ uniCloud-aliyun/cloudfunctions/*/env.local.json
 .data/
 node_modules/
 dist/
+out/

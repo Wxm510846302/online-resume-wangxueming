@@ -6,18 +6,22 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
+    "video:studio": "remotion studio src/remotion/index.jsx",
+    "video:still": "remotion still src/remotion/index.jsx ResumeIntro --frame=120 --scale=0.5 out/resume-intro-frame.png",
+    "video:render": "remotion render src/remotion/index.jsx ResumeIntro out/wangxueming-resume-intro.mp4",
     "preview": "vite preview --host 0.0.0.0",
     "check:content": "node scripts/check-content.mjs",
-    "test:unit": "node --test src/**/*.test.mjs server/**/*.test.mjs",
+    "test:unit": "node --test $(find src server -name '*.test.mjs' -print)",
     "test": "npm run test:unit && npm run check:content && npm run build"
   },
   "dependencies": {
+    "@remotion/cli": "^4.0.483",
     "@vitejs/plugin-react": "^5.0.0",
-    "vite": "^7.0.0",
-    "typescript": "^5.8.0",
+    "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "lucide-react": "^0.468.0"
-  },
-  "devDependencies": {}
+    "remotion": "^4.0.483",
+    "typescript": "^5.8.0",
+    "vite": "^7.0.0"
+  }
 }
