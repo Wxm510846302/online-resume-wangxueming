@@ -195,7 +195,7 @@ function Home() {
           <div className="hero-copy">
             <h1>{resume.name}</h1>
             <p className="role">高级前端全栈开发工程师</p>
-            <p className="summary">10+ 年客户端与全栈研发经验，专注高性能跨端应用与 SDK 架构设计</p>
+            <p className="summary">10+ 年移动端与全栈研发经验，主导服务全国百万级用户的跨端产品与 SDK 架构落地</p>
             <address className="identity-row" aria-label="联系信息">
               <a href={`mailto:${resume.email}`}><Mail size={18} /> wangxueming_1993@163.com</a>
               <a href={`tel:${resume.phone}`}><Phone size={18} /> 176-1024-1135</a>
