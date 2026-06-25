@@ -8,6 +8,9 @@ export default defineConfig(({ mode }) => {
   process.env.COZE_API_TOKEN ||= env.COZE_API_TOKEN;
   process.env.COZE_ACCESS_TOKEN ||= env.COZE_ACCESS_TOKEN;
   process.env.COZE_BOT_ID ||= env.COZE_BOT_ID;
+  process.env.COZE_VOICE_ID ||= env.COZE_VOICE_ID;
+  process.env.COZE_AGENT_VOICE_ID ||= env.COZE_AGENT_VOICE_ID;
+  process.env.COZE_SPEECH_SPEED ||= env.COZE_SPEECH_SPEED;
 
   return {
     plugins: [react(), cozeDevApi()],

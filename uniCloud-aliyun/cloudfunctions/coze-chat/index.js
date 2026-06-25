@@ -1,6 +1,8 @@
 "use strict";
 
 const COZE_CHAT_URL = "https://api.coze.cn/v3/chat";
+const COZE_SPEECH_URL = "https://api.coze.cn/v1/audio/speech";
+const DEFAULT_COZE_VOICE_ID = "7426725529589645339";
 const DEFAULT_BOT_ID = "7654798932023181327";
 const DEFAULT_ALLOWED_ORIGIN = "https://wxm510846302.github.io";
 
@@ -21,6 +23,10 @@ exports.main = async function (event = {}, context = {}) {
   }
 
   const body = parseRequestBody(event);
+  if (body.action === "speech") {
+    return handleSpeechRequest(body, token, origin);
+  }
+
   const question = String(body.question || "").trim();
   if (!question) {
     return response(400, { error: "Question is required" }, origin);
@@ -84,6 +90,47 @@ exports.main = async function (event = {}, context = {}) {
 
   return response(200, { answer }, origin);
 };
+
+async function handleSpeechRequest(body, token, origin) {
+  const input = String(body.text || body.input || "").trim();
+  if (!input) {
+    return response(400, { error: "Speech text is required" }, origin);
+  }
+
+  const cozeRes = await uniCloud.httpclient.request(COZE_SPEECH_URL, {
+    method: "POST",
+    contentType: "json",
+    dataType: "arraybuffer",
+    timeout: 55000,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "audio/mpeg, audio/*, application/json",
+    },
+    data: {
+      input: input.slice(0, 1000),
+      voice_id: getVoiceId(),
+      response_format: "mp3",
+      speed: Number(process.env.COZE_SPEECH_SPEED || 1),
+    },
+  });
+
+  const contentType = getResponseContentType(cozeRes) || "audio/mpeg";
+  const buffer = Buffer.isBuffer(cozeRes.data)
+    ? cozeRes.data
+    : Buffer.from(cozeRes.data || "");
+
+  if (cozeRes.status >= 400) {
+    return response(cozeRes.status, {
+      error: "Coze speech request failed",
+      detail: buffer.toString(),
+    }, origin);
+  }
+
+  return response(200, {
+    audioBase64: buffer.toString("base64"),
+    mimeType: contentType.includes("json") ? "audio/mpeg" : contentType,
+  }, origin);
+}
 
 function parseRequestBody(event) {
   let body = event.body || event;
@@ -200,6 +247,23 @@ function buildUserId(event) {
 function getBotId() {
   const envBotId = safeId(process.env.COZE_BOT_ID);
   return envBotId && envBotId !== "0" ? envBotId : DEFAULT_BOT_ID;
+}
+
+function getVoiceId() {
+  const envVoiceId = safeNumericId(process.env.COZE_VOICE_ID || process.env.COZE_AGENT_VOICE_ID);
+  return envVoiceId && envVoiceId !== "0" ? envVoiceId : DEFAULT_COZE_VOICE_ID;
+}
+
+function safeNumericId(value) {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  return /^\d{6,}$/.test(trimmed) ? trimmed : "";
+}
+
+function getResponseContentType(result) {
+  const headers = result.headers || {};
+  const key = Object.keys(headers).find((item) => item.toLowerCase() === "content-type");
+  return key ? String(headers[key] || "") : "";
 }
 
 function safeId(value) {

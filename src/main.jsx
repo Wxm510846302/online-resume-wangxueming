@@ -1,6 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { ArrowLeft, ArrowUpRight, Blocks, BriefcaseBusiness, CalendarClock, Camera, CheckCircle2, Code2, Cpu, FileText, Gauge, Gamepad2, Github, Mail, MapPin, Menu, PackageCheck, Phone, PlayCircle, Send, ShieldCheck, Shuffle, Sparkles, TimerReset, UserCog, X } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Blocks, BriefcaseBusiness, CalendarClock, Camera, CheckCircle2, Code2, Copy, Cpu, FileText, Gauge, Gamepad2, Github, Mail, MapPin, Menu, MessageCircle, PackageCheck, Phone, PlayCircle, RefreshCw, Send, ShieldCheck, Shuffle, Sparkles, Square, TimerReset, UserCog, Volume2, X } from "lucide-react";
 import { resume, projects } from "./data/resume.js";
 import { parseCozeSseChunk } from "./utils/cozeStream.js";
 import aiAvatar from "./assets/images/avatar-ai.png?avatar-ai-v1";
@@ -10,6 +10,7 @@ import "./styles.css";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const cozeApiPath = import.meta.env.VITE_COZE_PROXY_PATH || "/api/coze-chat";
+const cozeSpeechApiPath = import.meta.env.VITE_COZE_SPEECH_PROXY_PATH || cozeApiPath;
 
 const iconMap = {
   performance: TimerReset,
@@ -49,6 +50,13 @@ const assistantPrompts = [
   "你最适合高薪岗位的核心竞争力是什么？"
 ];
 const assistantPromptVisibleCount = 3;
+const assistantIntroVariants = [
+  "你好，我是王学明。我有 10+ 年移动端与跨端研发经验，长期专注 iOS、Flutter、小程序、Web/H5 和 SDK 架构。相比单一前端，我更擅长把客户端、跨端页面、原生能力和复杂业务交付串起来。",
+  "我是王学明，一名高级前端全栈开发工程师。我的经验覆盖 iOS、Flutter、WebView、小程序、SDK、支付登录和性能优化，适合负责复杂跨端产品、客户端基础能力和工程化交付。",
+  "你好，我是王学明。我做过在线教育、游戏 SDK、Web3、企业数字化等项目，擅长从业务目标出发处理跨端架构、性能稳定性、第三方 SDK 集成和团队协作交付。",
+  "我是王学明，过去 10 多年主要解决移动端和跨端产品里的复杂问题，包括 Flutter Add-to-App、iOS 性能优化、H5 与原生通信、SDK 架构、支付链路和 AI 工具提效。",
+  "你好，我是王学明。我的定位不是只写页面的前端，而是能把 iOS、Flutter、小程序、Web/H5、后台协作和 SDK 底层能力连接起来，负责高复杂度产品从方案到落地的完整交付。",
+];
 
 const assistantReplies = {
   default:
@@ -323,6 +331,28 @@ function getRandomPrompts(previous = []) {
   ];
 }
 
+function getRandomIntroText() {
+  return assistantIntroVariants[Math.floor(Math.random() * assistantIntroVariants.length)];
+}
+
+function stopAudioElement(ref) {
+  if (!ref.current) return;
+  ref.current.pause();
+  ref.current.remove();
+  ref.current.src = "";
+  ref.current = null;
+}
+
+function createHiddenAudio(audioUrl) {
+  const audio = document.createElement("audio");
+  audio.src = audioUrl;
+  audio.preload = "auto";
+  audio.className = "assistant-hidden-audio";
+  document.body.appendChild(audio);
+  audio.load();
+  return audio;
+}
+
 function useAssistantChat() {
   const [messages, setMessages] = React.useState([
     {
@@ -333,15 +363,126 @@ function useAssistantChat() {
   ]);
   const [isSending, setIsSending] = React.useState(false);
   const [serviceState, setServiceState] = React.useState("ready");
+  const [isIntroSpeaking, setIsIntroSpeaking] = React.useState(false);
+  const [isIntroPreparing, setIsIntroPreparing] = React.useState(false);
+  const [hasPlayedIntro, setHasPlayedIntro] = React.useState(false);
+  const [introText, setIntroText] = React.useState(assistantIntroVariants[0]);
+  const [playingMessageId, setPlayingMessageId] = React.useState("");
+  const [copiedMessageId, setCopiedMessageId] = React.useState("");
+  const [followUpContext, setFollowUpContext] = React.useState(null);
   const abortRef = React.useRef(null);
+  const introAudioRef = React.useRef(null);
+  const introSpeechAbortRef = React.useRef(null);
+  const introTypeTimerRef = React.useRef(null);
+  const messageAudioRef = React.useRef(null);
+  const messageSpeechAbortRef = React.useRef(null);
 
-  React.useEffect(() => {
-    return () => abortRef.current?.abort();
+  const stopMessageSpeech = React.useCallback(() => {
+    messageSpeechAbortRef.current?.abort();
+    messageSpeechAbortRef.current = null;
+    stopAudioElement(messageAudioRef);
+    setPlayingMessageId("");
   }, []);
 
-  const ask = React.useCallback(async (question) => {
+  const stopIntroSpeech = React.useCallback(() => {
+    introSpeechAbortRef.current?.abort();
+    introSpeechAbortRef.current = null;
+    if (introTypeTimerRef.current) {
+      window.clearInterval(introTypeTimerRef.current);
+      introTypeTimerRef.current = null;
+    }
+    stopAudioElement(introAudioRef);
+    setIsIntroSpeaking(false);
+    setIsIntroPreparing(false);
+    setIntroText(assistantIntroVariants[0]);
+  }, []);
+
+  React.useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      stopMessageSpeech();
+      stopIntroSpeech();
+    };
+  }, [stopIntroSpeech, stopMessageSpeech]);
+
+  const startIntroTypewriter = React.useCallback((text) => {
+    if (introTypeTimerRef.current) {
+      window.clearInterval(introTypeTimerRef.current);
+      introTypeTimerRef.current = null;
+    }
+    setIntroText("");
+    let introCharIndex = 0;
+    const introChars = Array.from(text);
+    introTypeTimerRef.current = window.setInterval(() => {
+      introCharIndex += 1;
+      setIntroText(introChars.slice(0, introCharIndex).join(""));
+      if (introCharIndex >= introChars.length && introTypeTimerRef.current) {
+        window.clearInterval(introTypeTimerRef.current);
+        introTypeTimerRef.current = null;
+      }
+    }, 42);
+  }, []);
+
+  const playIntro = React.useCallback(async () => {
+    if (isIntroSpeaking) {
+      stopIntroSpeech();
+      return;
+    }
+
+    stopMessageSpeech();
+    stopIntroSpeech();
+    setIsIntroSpeaking(true);
+    setIsIntroPreparing(true);
+    const controller = new AbortController();
+    introSpeechAbortRef.current = controller;
+
+    let audioUrl = "";
+    const introSpeechText = getRandomIntroText();
+    const finish = () => {
+      if (introTypeTimerRef.current) {
+        window.clearInterval(introTypeTimerRef.current);
+        introTypeTimerRef.current = null;
+      }
+      stopAudioElement(introAudioRef);
+      if (introSpeechAbortRef.current === controller) {
+        introSpeechAbortRef.current = null;
+      }
+      setIsIntroSpeaking(false);
+      setIsIntroPreparing(false);
+      setHasPlayedIntro(true);
+      setIntroText(introSpeechText);
+    };
+
+    try {
+      startIntroTypewriter(introSpeechText);
+      audioUrl = await requestCozeSpeech(introSpeechText, controller.signal);
+      if (controller.signal.aborted) return;
+      const audio = createHiddenAudio(audioUrl);
+      introAudioRef.current = audio;
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        finish();
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(audioUrl);
+        finish();
+      };
+      setIsIntroPreparing(false);
+      await audio.play();
+    } catch {
+      if (!controller.signal.aborted) {
+        if (audioUrl) URL.revokeObjectURL(audioUrl);
+        finish();
+      }
+    }
+  }, [isIntroSpeaking, startIntroTypewriter, stopIntroSpeech, stopMessageSpeech]);
+
+  const ask = React.useCallback(async (question, context = null) => {
     const trimmed = question.trim();
     if (!trimmed || isSending) return;
+    const effectiveQuestion = context?.text
+      ? `请基于上一段回答继续追问。上一段回答：\n${context.text}\n\n用户追问：${trimmed}`
+      : trimmed;
     const timestamp = Date.now();
     const userMessage = { id: `u-${Date.now()}`, role: "user", text: trimmed };
     const assistantId = `a-${timestamp}`;
@@ -350,6 +491,8 @@ function useAssistantChat() {
       role: "assistant",
       text: "正在思考中",
       pending: true,
+      sourceQuestion: effectiveQuestion,
+      sourceUserQuestion: trimmed,
     };
     setMessages((current) => [...current, userMessage, assistantMessage]);
 
@@ -360,7 +503,7 @@ function useAssistantChat() {
     abortRef.current = controller;
 
     try {
-      await streamAssistantReply(trimmed, assistantId, controller.signal, setMessages, setServiceState);
+      await streamAssistantReply(effectiveQuestion, assistantId, controller.signal, setMessages, setServiceState);
       setServiceState("ready");
     } catch (error) {
       if (controller.signal.aborted) return;
@@ -381,11 +524,126 @@ function useAssistantChat() {
     }
   }, [isSending]);
 
+  const speakMessage = React.useCallback(async (message) => {
+    if (!message?.text || message.pending || message.typing) return;
+    if (playingMessageId === message.id) {
+      stopMessageSpeech();
+      return;
+    }
+
+    stopMessageSpeech();
+    const controller = new AbortController();
+    messageSpeechAbortRef.current = controller;
+    setPlayingMessageId(message.id);
+
+    try {
+      const audioUrl = await requestCozeSpeech(message.text, controller.signal);
+      if (controller.signal.aborted) return;
+      const audio = createHiddenAudio(audioUrl);
+      messageAudioRef.current = audio;
+      const cleanup = () => {
+        URL.revokeObjectURL(audioUrl);
+        if (messageAudioRef.current === audio) {
+          stopAudioElement(messageAudioRef);
+        } else {
+          audio.pause();
+          audio.remove();
+          audio.src = "";
+        }
+        if (messageSpeechAbortRef.current === controller) {
+          messageSpeechAbortRef.current = null;
+        }
+        setPlayingMessageId("");
+      };
+      audio.onended = cleanup;
+      audio.onerror = cleanup;
+      await audio.play();
+    } catch {
+      if (!controller.signal.aborted) {
+        setPlayingMessageId("");
+      }
+    }
+  }, [playingMessageId, stopMessageSpeech]);
+
+  const copyMessage = React.useCallback(async (message) => {
+    if (!message?.text) return;
+    await navigator.clipboard?.writeText(message.text);
+    setCopiedMessageId(message.id);
+    window.setTimeout(() => {
+      setCopiedMessageId((current) => (current === message.id ? "" : current));
+    }, 1200);
+  }, []);
+
+  const followUpMessage = React.useCallback((message) => {
+    if (!message?.text || isSending) return;
+    setFollowUpContext({
+      id: message.id,
+      text: message.text,
+      title: message.sourceUserQuestion || message.sourceQuestion || message.text.slice(0, 42),
+    });
+  }, [isSending]);
+
+  const refreshMessage = React.useCallback(async (message) => {
+    if (!message?.id || isSending) return;
+    const question = message.sourceQuestion || "请重新介绍一下王学明的技术背景和岗位匹配。";
+    setMessages((current) =>
+      updateMessage(current, message.id, {
+        text: "正在思考中",
+        pending: true,
+        typing: false,
+        error: false,
+        sourceQuestion: question,
+        sourceUserQuestion: message.sourceUserQuestion || question,
+      }),
+    );
+    setIsSending(true);
+    setServiceState("thinking");
+    stopMessageSpeech();
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      await streamAssistantReply(question, message.id, controller.signal, setMessages, setServiceState);
+      setServiceState("ready");
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      const fallback = getAssistantReply(question);
+      const fallbackText = `真实 AI 暂时未连通：${error.message || "请求失败"}\n\n先给你一版本地简历兜底回答：${fallback}`;
+      setServiceState("replying");
+      await typeAssistantText(
+        message.id,
+        fallbackText,
+        setMessages,
+        controller.signal,
+        { error: true },
+      );
+      setServiceState("offline");
+    } finally {
+      setIsSending(false);
+      abortRef.current = null;
+    }
+  }, [isSending, stopMessageSpeech]);
+
   return {
     ask,
+    copiedMessageId,
+    copyMessage,
+    clearFollowUpContext: () => setFollowUpContext(null),
+    followUpMessage,
+    followUpContext,
+    hasPlayedIntro,
+    introText,
+    isIntroPreparing,
+    isIntroSpeaking,
     isSending,
     messages,
+    playIntro,
+    playingMessageId,
+    refreshMessage,
     serviceState,
+    stopIntroSpeech,
+    speakMessage,
   };
 }
 
@@ -393,7 +651,25 @@ function AssistantChat({ assistant, compact = false }) {
   const [input, setInput] = React.useState("");
   const chatLogRef = React.useRef(null);
   const inputRef = React.useRef(null);
-  const { ask, isSending, messages, serviceState } = assistant;
+  const {
+    ask,
+    clearFollowUpContext,
+    copiedMessageId,
+    copyMessage,
+    followUpMessage,
+    followUpContext,
+    hasPlayedIntro,
+    introText,
+    isIntroPreparing,
+    isIntroSpeaking,
+    isSending,
+    messages,
+    playIntro,
+    playingMessageId,
+    refreshMessage,
+    serviceState,
+    speakMessage,
+  } = assistant;
 
   React.useEffect(() => {
     const log = chatLogRef.current;
@@ -402,10 +678,17 @@ function AssistantChat({ assistant, compact = false }) {
     }
   }, [messages]);
 
+  React.useEffect(() => {
+    if (followUpContext) {
+      inputRef.current?.focus();
+    }
+  }, [followUpContext]);
+
   const submitQuestion = (question) => {
     const trimmed = question.trim();
     if (!trimmed || isSending) return;
-    ask(trimmed);
+    ask(trimmed, followUpContext);
+    clearFollowUpContext();
     setInput("");
     if (inputRef.current) {
       inputRef.current.value = "";
@@ -426,6 +709,13 @@ function AssistantChat({ assistant, compact = false }) {
           {serviceState === "thinking" ? "思考中" : serviceState === "replying" ? "回复中" : serviceState === "offline" ? "未连通" : "在线"}
         </span>
       </div>
+      <AssistantIntroStage
+        hasPlayed={hasPlayedIntro}
+        introText={introText}
+        isPreparing={isIntroPreparing}
+        isSpeaking={isIntroSpeaking}
+        onPlayIntro={playIntro}
+      />
       <div className="assistant-messages" ref={chatLogRef} aria-live="polite">
         {messages.map((message) => (
           <div className={`assistant-message ${message.role}${message.error ? " is-error" : ""}${message.pending ? " is-pending" : ""}${message.typing ? " is-typing" : ""}`} key={message.id}>
@@ -433,14 +723,41 @@ function AssistantChat({ assistant, compact = false }) {
               {message.role === "assistant" ? <img src={aiAvatar} alt="" /> : <UserCog size={15} />}
             </span>
             {message.role === "assistant" ? (
-              <AssistantMarkdown text={message.text} />
+              <div className="assistant-message-content">
+                <AssistantMarkdown text={message.text} />
+                {!message.pending && !message.typing && message.text ? (
+                  <AssistantMessageActions
+                    copied={copiedMessageId === message.id}
+                    message={message}
+                    onCopy={copyMessage}
+                    onFollowUp={followUpMessage}
+                    onRefresh={refreshMessage}
+                    onSpeak={speakMessage}
+                    playing={playingMessageId === message.id}
+                  />
+                ) : null}
+              </div>
             ) : (
               <p>{message.text}</p>
             )}
           </div>
         ))}
       </div>
-      <PromptButtons onAsk={ask} />
+      <PromptButtons
+        onAsk={(prompt) => {
+          clearFollowUpContext();
+          ask(prompt);
+        }}
+      />
+      {followUpContext ? (
+        <div className="assistant-followup-context">
+          <MessageCircle size={14} />
+          <span>正在追问上一段回复</span>
+          <button type="button" onClick={clearFollowUpContext} aria-label="取消追问上下文">
+            <X size={13} />
+          </button>
+        </div>
+      ) : null}
       <form
         className="assistant-input-row"
           onSubmit={(event) => {
@@ -464,6 +781,84 @@ function AssistantChat({ assistant, compact = false }) {
           <Send size={18} />
         </button>
       </form>
+    </div>
+  );
+}
+
+function AssistantIntroStage({ hasPlayed, introText, isPreparing, isSpeaking, onPlayIntro }) {
+  const buttonLabel = isPreparing ? "准备音色中" : isSpeaking ? "停止播放" : hasPlayed ? "换一段" : "播放自我介绍";
+
+  return (
+    <div className={`assistant-intro-stage${isSpeaking ? " is-speaking" : ""}`}>
+      <div className="assistant-intro-copy">
+        <div className="assistant-wave" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+          <span />
+        </div>
+        <p>{introText}</p>
+      </div>
+      <button
+        className="assistant-voice-button"
+        type="button"
+        disabled={isPreparing}
+        onClick={onPlayIntro}
+        title={buttonLabel}
+        aria-label={buttonLabel}
+      >
+        {isSpeaking ? <Square size={15} /> : <Volume2 size={15} />}
+        <span>{buttonLabel}</span>
+      </button>
+    </div>
+  );
+}
+
+function AssistantMessageActions({
+  copied,
+  message,
+  onCopy,
+  onFollowUp,
+  onRefresh,
+  onSpeak,
+  playing,
+}) {
+  return (
+    <div className="assistant-message-actions" aria-label="回复操作">
+      <button
+        type="button"
+        className={playing ? "is-active" : undefined}
+        onClick={() => onSpeak(message)}
+        title={playing ? "停止播放" : "播放这段回复"}
+        aria-label={playing ? "停止播放这段回复" : "播放这段回复"}
+      >
+        {playing ? <Square size={14} /> : <Volume2 size={14} />}
+      </button>
+      <button
+        type="button"
+        className={copied ? "is-done" : undefined}
+        onClick={() => onCopy(message)}
+        title={copied ? "已复制" : "复制这段回复"}
+        aria-label="复制这段回复"
+      >
+        <Copy size={14} />
+      </button>
+      <button
+        type="button"
+        onClick={() => onFollowUp(message)}
+        title="基于这段回复追问"
+        aria-label="基于这段回复追问"
+      >
+        <MessageCircle size={14} />
+      </button>
+      <button
+        type="button"
+        onClick={() => onRefresh(message)}
+        title="重新生成这段回复"
+        aria-label="重新生成这段回复"
+      >
+        <RefreshCw size={14} />
+      </button>
     </div>
   );
 }
@@ -651,6 +1046,54 @@ async function streamAssistantReply(question, assistantId, signal, setMessages, 
   if (!hasContent) {
     throw new Error("Coze 没有返回可展示内容");
   }
+}
+
+async function requestCozeSpeech(text, signal) {
+  const response = await fetch(cozeSpeechApiPath, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      action: "speech",
+      text,
+      userId: getVisitorId(),
+    }),
+    signal,
+  });
+
+  const contentType = response.headers.get("content-type") || "";
+  if (!response.ok) {
+    const payload = contentType.includes("application/json")
+      ? await response.json().catch(() => null)
+      : null;
+    const detail = payload?.detail || payload?.error || `HTTP ${response.status}`;
+    throw new Error(`Coze 音色生成失败：${detail}`);
+  }
+
+  if (contentType.includes("application/json")) {
+    const payload = await response.json();
+    if (payload?.audioBase64) {
+      return URL.createObjectURL(base64ToAudioBlob(payload.audioBase64, payload.mimeType || "audio/mpeg"));
+    }
+    if (payload?.audioUrl) {
+      const audioResponse = await fetch(payload.audioUrl, { signal });
+      if (!audioResponse.ok) throw new Error("Coze 音频文件下载失败");
+      return URL.createObjectURL(await audioResponse.blob());
+    }
+    throw new Error(payload?.error || "Coze 没有返回可播放音频");
+  }
+
+  return URL.createObjectURL(await response.blob());
+}
+
+function base64ToAudioBlob(value, mimeType) {
+  const binary = window.atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new Blob([bytes], { type: mimeType });
 }
 
 async function typeAssistantText(
