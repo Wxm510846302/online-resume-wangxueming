@@ -1191,25 +1191,6 @@ section[id] {
   }
 }
 
-@keyframes thinkingDots {
-  0% {
-    content: "";
-  }
-
-  25% {
-    content: ".";
-  }
-
-  50% {
-    content: "..";
-  }
-
-  75%,
-  100% {
-    content: "...";
-  }
-}
-
 .metrics {
   grid-template-columns: repeat(6, 1fr);
   gap: 0;
@@ -1734,12 +1715,6 @@ section[id] {
   background: #f7fafc;
 }
 
-.assistant-message.is-pending p::after,
-.assistant-message.is-pending .assistant-markdown::after {
-  content: "";
-  animation: thinkingDots 1.2s steps(4, end) infinite;
-}
-
 .assistant-message.is-error p,
 .assistant-message.is-error .assistant-markdown {
   color: #7f1d1d;
@@ -1774,7 +1749,7 @@ section[id] {
   color: #17202c;
   background: #ffffff;
   font: inherit;
-  font-size: 14px;
+  font-size: 16px;
   outline: none;
 }
 
@@ -1867,6 +1842,8 @@ section[id] {
   pointer-events: auto;
   border-radius: 12px;
   background: #ffffff;
+  overflow: hidden;
+  isolation: isolate;
   box-shadow: 0 28px 70px rgba(18, 34, 52, 0.24);
 }
 
@@ -1891,7 +1868,10 @@ section[id] {
   max-height: min(620px, calc(100vh - 132px));
   margin: 0;
   overflow: hidden;
+  border: 0;
   border-radius: 12px;
+  background: #ffffff;
+  box-shadow: none;
 }
 
 .assistant-chat-floating .assistant-chat-head {
@@ -2464,9 +2444,11 @@ section[id] {
   }
 
   .floating-assistant {
-    right: 12px;
-    bottom: 12px;
-    left: 12px;
+    width: 100vw;
+    max-width: 100vw;
+    right: auto;
+    bottom: 0;
+    left: 0;
   }
 
   .floating-avatar-button {
@@ -2476,13 +2458,14 @@ section[id] {
 
   .floating-assistant-panel {
     width: 100%;
-    border-radius: 16px;
+    border-radius: 18px 18px 0 0;
     box-shadow: 0 22px 60px rgba(18, 34, 52, 0.28);
   }
 
   .assistant-chat-floating {
+    margin: 0;
     max-height: min(680px, calc(100vh - 96px));
-    border-radius: 16px;
+    border-radius: inherit;
   }
 
   .assistant-chat-floating .assistant-chat-head {

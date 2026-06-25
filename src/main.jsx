@@ -48,6 +48,7 @@ const assistantPrompts = [
   "你如何让业务方看到技术投入的价值？",
   "你最适合高薪岗位的核心竞争力是什么？"
 ];
+const assistantPromptVisibleCount = 3;
 
 const assistantReplies = {
   default:
@@ -312,9 +313,14 @@ function PromptButtons({ onAsk }) {
 
 function getRandomPrompts(previous = []) {
   const shuffled = [...assistantPrompts].sort(() => Math.random() - 0.5);
-  const next = shuffled.filter((prompt) => !previous.includes(prompt)).slice(0, 4);
-  if (next.length === 4) return next;
-  return [...next, ...shuffled.filter((prompt) => !next.includes(prompt)).slice(0, 4 - next.length)];
+  const next = shuffled.filter((prompt) => !previous.includes(prompt)).slice(0, assistantPromptVisibleCount);
+  if (next.length === assistantPromptVisibleCount) return next;
+  return [
+    ...next,
+    ...shuffled
+      .filter((prompt) => !next.includes(prompt))
+      .slice(0, assistantPromptVisibleCount - next.length),
+  ];
 }
 
 function useAssistantChat() {
