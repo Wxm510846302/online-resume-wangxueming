@@ -371,17 +371,62 @@ function HeroVisual() {
 }
 
 function AssistantSection({ assistant }) {
+  const guideCards = [
+    {
+      icon: MessageCircle,
+      title: "面试式追问",
+      text: "围绕岗位匹配、项目经历、技术取舍连续追问。",
+    },
+    {
+      icon: ShieldCheck,
+      title: "核心链路",
+      text: "登录、支付、分享、SDK、性能稳定性都可展开。",
+    },
+    {
+      icon: CheckCircle2,
+      title: "答案可复核",
+      text: "回复支持 Markdown，关键信息更易扫描和复制。",
+    },
+  ];
+  const guideTags = ["岗位匹配", "Flutter App", "iOS 性能", "SDK 架构", "支付登录", "团队管理"];
+
   return (
     <section className="assistant-section section" id="assistant">
       <div className="assistant-shell">
         <div className="assistant-copy">
-          <div className="assistant-title-row">
-            <span className="assistant-orb"><Sparkles size={22} /></span>
-            <h2>AI 问答助手</h2>
+          <div className="assistant-copy-main">
+            <div className="assistant-title-row">
+              <span className="assistant-orb"><Sparkles size={22} /></span>
+              <div>
+                <h2>问答助手</h2>
+                <span>虚拟分身 · 简历问答</span>
+              </div>
+            </div>
+            <p>
+              用对话方式快速了解岗位匹配、项目经验和技术强项。适合在面试前先筛选关键能力，也适合围绕复杂链路继续追问。
+            </p>
           </div>
-          <p>
-            用对话方式了解我的虚拟分身。当前版本已接入智能体，适合快速了解岗位匹配、项目经验和技术强项。
-          </p>
+          <div className="assistant-guide-grid" aria-label="问答能力说明">
+            {guideCards.map(({ icon: GuideIcon, title, text }) => (
+              <article className="assistant-guide-card" key={title}>
+                <GuideIcon size={17} />
+                <div>
+                  <strong>{title}</strong>
+                  <span>{text}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="assistant-topic-panel">
+            <span>建议提问方向</span>
+            <div>
+              {guideTags.map((tag) => <button type="button" key={tag} onClick={() => assistant.ask(tag)}>{tag}</button>)}
+            </div>
+          </div>
+          <div className="assistant-copy-foot">
+            <strong>*</strong>
+            <span>预设高频问题覆盖项目、架构、性能、交付和管理场景</span>
+          </div>
         </div>
         <AssistantChat assistant={assistant} compact={false} />
       </div>
