@@ -110,6 +110,23 @@ const aiMiniProjects = [
   },
 ];
 
+const aiResearchDocs = [
+  {
+    title: "比特币生态导航图",
+    type: "Web3 研究文档",
+    description: "围绕比特币生态、协议方向、资产形态和基础设施做结构化梳理，适合展示 Web3 研究与信息架构能力。",
+    url: "https://drive.google.com/file/d/1vqVXK_lgQz93muuHo9o69RrTGD2dt66A/view",
+    meta: "Bitcoin Ecosystem Map",
+  },
+  {
+    title: "区块链发展趋势图",
+    type: "Web3 研究文档",
+    description: "将区块链技术演进、产业趋势和应用方向整理成图谱化资料，体现复杂信息归纳与可视化表达。",
+    url: "https://drive.google.com/file/d/1aX6wDLnZcjzBDVzydusAHu4FUYHc0ViQ/view",
+    meta: "Blockchain Trend Map",
+  },
+];
+
 const assistantPrompts = [
   "你最适合什么岗位？",
   "介绍一下 Flutter App 经验",
@@ -467,7 +484,7 @@ function Home({ auth }) {
         <section className="hero" id="top">
           <div className="hero-copy">
             <h1>{resume.name}</h1>
-            <p className="role">高级前端全栈开发工程师</p>
+            <p className="role">大前端负责人/高级前端全栈开发工程师</p>
             <p className="summary">10+ 年移动端与全栈研发经验，主导服务全国百万级用户的跨端产品与 SDK 架构落地</p>
             <address className="identity-row" aria-label="联系信息">
               <a href={`mailto:${resume.email}`}><Mail size={18} /> wangxueming_1993@163.com</a>
@@ -522,7 +539,7 @@ function Home({ auth }) {
         <section className="section" id="projects">
           <SectionTitle title="项目案例" />
           <div className="project-grid">
-            {projects.map((project) => <ProjectCard project={project} key={project.slug} />)}
+            {projects.map((project, index) => <ProjectCard project={project} index={index} key={project.slug} />)}
           </div>
         </section>
 
@@ -1690,27 +1707,34 @@ function SectionTitle({ title, text }) {
   );
 }
 
-function ProjectCard({ project }) {
+function ProjectCard({ project, index }) {
   const detailHref = `${basePath}/#/project/${project.slug}`;
 
   return (
     <article className="project-card">
-      <div className="project-icon"><Code2 size={28} /></div>
-      <div className="project-topline">
-        {project.stack.slice(0, 3).map((tag) => <span key={tag}>{tag}</span>)}
+      <div className="project-card-head">
+        <div className="project-icon"><Code2 size={24} /></div>
+        <div className="project-head-meta">
+          <span>Case {String(index + 1).padStart(2, "0")}</span>
+          <div className="project-topline">
+            {project.stack.slice(0, 3).map((tag) => <span key={tag}>{tag}</span>)}
+          </div>
+        </div>
       </div>
-      <h3>{project.name}</h3>
-      <p>{project.summary}</p>
-      <div className="project-actions">
-        <a className="project-link" href={detailHref}>
-          查看详情 <ArrowUpRight size={15} />
-        </a>
-        <a className="project-link muted" href={detailHref}>
-          <PlayCircle size={15} /> 演示
-        </a>
-        <a className="project-link muted" href={detailHref}>
-          <Camera size={15} /> 截图
-        </a>
+      <div className="project-card-body">
+        <h3>{project.name}</h3>
+        <p>{project.summary}</p>
+        <div className="project-actions">
+          <a className="project-link" href={detailHref}>
+            查看详情 <ArrowUpRight size={15} />
+          </a>
+          <a className="project-link muted" href={detailHref}>
+            <PlayCircle size={15} /> 演示
+          </a>
+          <a className="project-link muted" href={detailHref}>
+            <Camera size={15} /> 截图
+          </a>
+        </div>
       </div>
     </article>
   );
@@ -1729,7 +1753,8 @@ function AIMiniProjectsSection() {
           <div className="ai-lab-stats" aria-label="AI 小项目概览">
             <span><strong>{aiMiniProjects.length}</strong> 个外链 Demo</span>
             <span><strong>5</strong> 个小游戏</span>
-            <span><strong>3</strong> 个科普站</span>
+            <span><strong>3</strong> 个科普文档</span>
+            <span><strong>{aiResearchDocs.length}</strong> 个研究文档</span>
           </div>
         </div>
         <div className="ai-lab-grid">
@@ -1752,6 +1777,26 @@ function AIMiniProjectsSection() {
               </span>
             </a>
           ))}
+        </div>
+        <div className="ai-doc-panel" aria-label="Web3 研究文档">
+          <div className="ai-doc-panel-head">
+            <span className="section-eyebrow">Web3 Research Output</span>
+            <h3>图谱化研究文档</h3>
+          </div>
+          <div className="ai-doc-grid">
+            {aiResearchDocs.map((item) => (
+              <a className="ai-doc-card" href={item.url} target="_blank" rel="noreferrer" key={item.title}>
+                <span className="ai-doc-icon"><FileText size={20} /></span>
+                <span className="ai-doc-type">{item.type}</span>
+                <strong>{item.title}</strong>
+                <p>{item.description}</p>
+                <span className="ai-doc-meta">{item.meta}</span>
+                <span className="ai-doc-action">
+                  查看文档 <ArrowUpRight size={15} />
+                </span>
+              </a>
+            ))}
+          </div>
         </div>
       </div>
     </section>
