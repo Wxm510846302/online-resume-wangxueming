@@ -51,6 +51,65 @@ const iconMap = {
 
 const metricIcons = [CalendarClock, UserCog, Blocks, Gauge, Gamepad2, PackageCheck];
 
+const aiMiniProjects = [
+  {
+    title: "成语接龙",
+    type: "小游戏",
+    description: "中文成语连续接龙练习，适合展示规则约束和轻交互体验。",
+    url: "https://static-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/minigame/Cyjl/index.html",
+    accent: "blue",
+  },
+  {
+    title: "翻翻乐",
+    type: "小游戏",
+    description: "卡片记忆匹配玩法，覆盖状态管理、动画反馈和基础关卡节奏。",
+    url: "https://static-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/minigame/Fppd/index.html",
+    accent: "green",
+  },
+  {
+    title: "拼图",
+    type: "小游戏",
+    description: "图片切片拖拽还原，验证网格计算、拖拽交互和完成判定。",
+    url: "https://static-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/minigame/Pt/index.html",
+    accent: "amber",
+  },
+  {
+    title: "五子棋",
+    type: "小游戏",
+    description: "经典棋盘对弈，包含落子、胜负判断和棋局状态维护。",
+    url: "https://static-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/minigame/Wzq/deliverables/gomoku.html",
+    accent: "dark",
+  },
+  {
+    title: "象棋",
+    type: "小游戏",
+    description: "中国象棋 Web 版，突出复杂规则建模与棋盘交互实现。",
+    url: "https://static-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/minigame/Xq/xiangqi.html",
+    accent: "red",
+  },
+  {
+    title: "太阳系模拟器",
+    type: "可视化",
+    description: "天体轨道模拟展示，适合体现 Canvas/Web 动效和科普表达。",
+    url: "https://static-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/DesktopVersion/solar-system/index.html",
+    accent: "violet",
+  },
+  {
+    title: "非自杀性自伤临床诊治",
+    type: "医学科普",
+    description: "医学主题 Web 展示页，将专业资料整理为结构化临床科普内容。",
+    url: "https://wxm510846302.github.io/nssi-web/",
+    accent: "cyan",
+  },
+  {
+    title: "睡眠心理健康科普",
+    type: "医学科普",
+    description: "睡眠心理健康主题演示站，面向科普传播的完整 Web PPT。",
+    url: "https://wxm510846302.github.io/sleep-web-ppt-full/",
+    accent: "indigo",
+  },
+];
+
 const assistantPrompts = [
   "你最适合什么岗位？",
   "介绍一下 Flutter App 经验",
@@ -327,6 +386,7 @@ function Header({ auth }) {
     ["首页", "#top"],
     ["技能", "#skills"],
     ["项目", "#projects"],
+    ["小作品", "#ai-lab"],
     ["经历", "#timeline"],
     ["问答", "#assistant"],
     ["关于我", "#education"],
@@ -465,6 +525,8 @@ function Home({ auth }) {
             {projects.map((project) => <ProjectCard project={project} key={project.slug} />)}
           </div>
         </section>
+
+        <AIMiniProjectsSection />
 
         <section className="section education-section" id="education">
           <SectionTitle title="教育与技术转型" />
@@ -1651,6 +1713,48 @@ function ProjectCard({ project }) {
         </a>
       </div>
     </article>
+  );
+}
+
+function AIMiniProjectsSection() {
+  return (
+    <section className="ai-lab-section section" id="ai-lab">
+      <div className="ai-lab-shell">
+        <div className="ai-lab-intro">
+          <span className="section-eyebrow">AI Built Experiments</span>
+          <h2>AI 小项目实验室</h2>
+          <p>
+            这些是用 AI 辅助快速完成的小项目，覆盖小游戏、交互模拟和医学科普 Web 展示。它们不替代正式项目经历，但能体现从想法到可访问 Demo 的落地速度。
+          </p>
+          <div className="ai-lab-stats" aria-label="AI 小项目概览">
+            <span><strong>{aiMiniProjects.length}</strong> 个外链 Demo</span>
+            <span><strong>5</strong> 个小游戏</span>
+            <span><strong>3</strong> 个科普站</span>
+          </div>
+        </div>
+        <div className="ai-lab-grid">
+          {aiMiniProjects.map((item) => (
+            <a
+              className={`ai-lab-card accent-${item.accent}`}
+              href={item.url}
+              target="_blank"
+              rel="noreferrer"
+              key={item.title}
+            >
+              <span className="ai-lab-card-icon">
+                {item.type === "医学科普" ? <FileText size={19} /> : item.type === "可视化" ? <Sparkles size={19} /> : <Gamepad2 size={19} />}
+              </span>
+              <span className="ai-lab-card-type">{item.type}</span>
+              <strong>{item.title}</strong>
+              <p>{item.description}</p>
+              <span className="ai-lab-card-action">
+                打开 Demo <ArrowUpRight size={15} />
+              </span>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
