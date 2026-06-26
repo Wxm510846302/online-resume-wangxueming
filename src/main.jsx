@@ -2,7 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowLeft, ArrowUpRight, Blocks, BriefcaseBusiness, CalendarClock, Camera, CheckCircle2, ChevronDown, ChevronUp, Code2, Copy, Cpu, FileText, Gauge, Gamepad2, Github, Mail, MapPin, Menu, MessageCircle, PackageCheck, Phone, PlayCircle, RefreshCw, Send, ShieldCheck, Shuffle, Sparkles, Square, TimerReset, UserCog, Volume2, X } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Blocks, BriefcaseBusiness, CalendarClock, Camera, CheckCircle2, ChevronDown, ChevronUp, Code2, Copy, Cpu, Download, FileText, Gauge, Gamepad2, Github, KeyRound, LockKeyhole, Mail, MapPin, Menu, MessageCircle, PackageCheck, Phone, PlayCircle, RefreshCw, Send, ShieldCheck, Shuffle, Sparkles, Square, TimerReset, UserCog, Volume2, X } from "lucide-react";
 import { resume, projects } from "./data/resume.js";
 import { parseCozeSseChunk } from "./utils/cozeStream.js";
 import aiAvatar from "./assets/images/avatar-ai.png?avatar-ai-v1";
@@ -11,10 +11,34 @@ import heroLayerPerson from "./assets/images/hero-layer-person.png?layered-v1";
 import "./styles.css";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-const cozeApiPath = import.meta.env.VITE_COZE_PROXY_PATH || "/api/coze-chat";
-const cozeSpeechApiPath = import.meta.env.VITE_COZE_SPEECH_PROXY_PATH || cozeApiPath;
+const defaultCozeApiPath = import.meta.env.VITE_COZE_PROXY_PATH || "/api/coze-chat";
+const cozeApiPaths = parseProxyPaths(import.meta.env.VITE_COZE_PROXY_PATHS, defaultCozeApiPath);
+const cozeSpeechApiPaths = parseProxyPaths(
+  import.meta.env.VITE_COZE_SPEECH_PROXY_PATHS,
+  import.meta.env.VITE_COZE_SPEECH_PROXY_PATH || cozeApiPaths,
+);
 const resumeFilmSrc = `${basePath}/resume-film/wangxueming-resume-intro.mp4`;
 const resumeFilmPoster = `${basePath}/resume-film/wangxueming-resume-intro-poster.png`;
+const AUTH_STORAGE_KEY = "resume-admin-authenticated";
+const AUTH_HASH_SALT = "online-resume-wangxueming";
+const AUTH_USERNAME_HASH = "dd3f8c1cf0a2145ada6b26e7209ccbfa947da0ceb3568ee8b54cb0799f5993ef";
+const AUTH_PASSWORD_HASH = "6f82837798bcc3d7fb33f65cf64f3af02ba3c0c3a24db414f037901204591a85";
+
+function parseProxyPaths(value, fallback) {
+  const values = [];
+  const append = (item) => {
+    if (Array.isArray(item)) {
+      item.forEach(append);
+      return;
+    }
+    if (typeof item !== "string") return;
+    item.split(",").map((path) => path.trim()).filter(Boolean).forEach((path) => values.push(path));
+  };
+
+  append(value);
+  append(fallback);
+  return [...new Set(values)];
+}
 
 const iconMap = {
   performance: TimerReset,
@@ -92,6 +116,12 @@ function getAssistantReply(question) {
 
 function App() {
   const [route, setRoute] = React.useState(getRoute);
+  const authState = useResumeAuth();
+  const [loginDialogOpen, setLoginDialogOpen] = React.useState(false);
+  const auth = {
+    ...authState,
+    openLogin: () => setLoginDialogOpen(true),
+  };
 
   React.useEffect(() => {
     const syncRoute = () => setRoute(getRoute());
@@ -105,16 +135,24 @@ function App() {
 
   const slug = route.replace(/^\/project\/?/, "").replace(/\/$/, "");
   const project = slug ? projects.find((item) => item.slug === slug) : null;
+  let page;
 
   if (slug && project) {
-    return <ProjectDetail project={project} />;
+    page = <ProjectDetail project={project} auth={auth} />;
+  } else if (slug && !project) {
+    page = <NotFound />;
+  } else {
+    page = <Home auth={auth} />;
   }
 
-  if (slug && !project) {
-    return <NotFound />;
-  }
-
-  return <Home />;
+  return (
+    <>
+      {page}
+      {loginDialogOpen ? (
+        <LoginDialog auth={auth} onClose={() => setLoginDialogOpen(false)} />
+      ) : null}
+    </>
+  );
 }
 
 function getRoute() {
@@ -129,7 +167,160 @@ function getRoute() {
   return currentPath.startsWith("/project/") ? currentPath : "/";
 }
 
-function Header() {
+function useResumeAuth() {
+  const [isAuthenticated, setIsAuthenticated] = React.useState(() => {
+    try {
+      return window.localStorage?.getItem(AUTH_STORAGE_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const login = React.useCallback(async (username, password) => {
+    const [usernameHash, passwordHash] = await Promise.all([
+      hashCredential("username", username.trim()),
+      hashCredential("password", password),
+    ]);
+    if (usernameHash !== AUTH_USERNAME_HASH || passwordHash !== AUTH_PASSWORD_HASH) {
+      return false;
+    }
+    setIsAuthenticated(true);
+    try {
+      window.localStorage?.setItem(AUTH_STORAGE_KEY, "true");
+    } catch {
+      // Login still works for the current session if storage is unavailable.
+    }
+    return true;
+  }, []);
+
+  const logout = React.useCallback(() => {
+    setIsAuthenticated(false);
+    try {
+      window.localStorage?.removeItem(AUTH_STORAGE_KEY);
+    } catch {
+      // Local state has already been cleared.
+    }
+  }, []);
+
+  return { isAuthenticated, login, logout };
+}
+
+async function hashCredential(kind, value) {
+  const bytes = new TextEncoder().encode(`${AUTH_HASH_SALT}:${kind}:${value}`);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function LoginDialog({ auth, onClose }) {
+  const [username, setUsername] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [error, setError] = React.useState("");
+  const [submitting, setSubmitting] = React.useState(false);
+  const usernameRef = React.useRef(null);
+
+  React.useEffect(() => {
+    usernameRef.current?.focus();
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setSubmitting(true);
+    try {
+      const success = await auth.login(username, password);
+      if (success) {
+        setError("");
+        onClose();
+        return;
+      }
+      setError("账号或密码不正确");
+    } catch {
+      setError("登录校验失败，请稍后重试");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="login-overlay" role="presentation" onMouseDown={onClose}>
+      <section
+        className="login-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="login-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <button className="login-close" type="button" aria-label="关闭登录弹框" onClick={onClose}>
+          <X size={18} />
+        </button>
+        <div className="login-head">
+          <span><LockKeyhole size={20} /></span>
+          <div>
+            <h2 id="login-title">管理员登录</h2>
+          </div>
+          <em>Private</em>
+        </div>
+        {auth.isAuthenticated ? (
+          <div className="login-authed">
+            <span><ShieldCheck size={18} /> 已登录</span>
+            <button
+              className="secondary-action"
+              type="button"
+              onClick={() => {
+                auth.logout();
+                onClose();
+              }}
+            >
+              退出登录
+            </button>
+          </div>
+        ) : (
+          <form className="login-form" onSubmit={handleSubmit}>
+            <label>
+              <span>账号</span>
+              <div className="login-input-shell">
+                <UserCog size={18} />
+                <input
+                  ref={usernameRef}
+                  type="text"
+                  autoComplete="username"
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  placeholder="请输入账号"
+                />
+              </div>
+            </label>
+            <label>
+              <span>密码</span>
+              <div className="login-input-shell">
+                <KeyRound size={18} />
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="请输入密码"
+                />
+              </div>
+            </label>
+            {error ? <p className="login-error" role="alert">{error}</p> : null}
+            <button className="primary-action login-submit" type="submit" disabled={submitting}>
+              {submitting ? "校验中" : "登录"}
+            </button>
+          </form>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function Header({ auth }) {
   const [open, setOpen] = React.useState(false);
   const [activeHash, setActiveHash] = React.useState(window.location.hash || "#top");
   const links = [
@@ -149,10 +340,16 @@ function Header() {
 
   return (
     <header className="site-header">
-      <a className="brand" href={`${basePath}/`}>
+      <button
+        className={auth.isAuthenticated ? "brand is-authenticated" : "brand"}
+        type="button"
+        aria-haspopup="dialog"
+        onClick={auth.openLogin}
+        title={auth.isAuthenticated ? "已登录，点击管理登录状态" : "登录后查看面试准备内容"}
+      >
         <span>王学明</span>
         <span className="brand-code">&lt;/&gt;</span>
-      </a>
+      </button>
       <button
         className="icon-button mobile-only"
         aria-label={open ? "关闭导航" : "打开导航"}
@@ -181,14 +378,16 @@ function Header() {
           href={`${basePath}/wangxueming-resume.pdf`}
           download="王学明开发岗个人简历v2.5.2.pdf"
         >
-          下载简历 PDF
+          <span className="nav-cta-icon"><Download size={18} /></span>
+          <span>下载简历</span>
+          <strong>PDF</strong>
         </a>
       </nav>
     </header>
   );
 }
 
-function Home() {
+function Home({ auth }) {
   const assistant = useAssistantChat();
   const [resumeFilmVisible, setResumeFilmVisible] = React.useState(getInitialResumeFilmVisibility);
 
@@ -203,7 +402,7 @@ function Home() {
 
   return (
     <>
-      <Header />
+      <Header auth={auth} />
       <main>
         <section className="hero" id="top">
           <div className="hero-copy">
@@ -1079,7 +1278,23 @@ function hideUnclosedInlineMarkdown(text) {
 }
 
 async function streamAssistantReply(question, assistantId, signal, setMessages, setServiceState) {
-  const response = await fetch(cozeApiPath, {
+  let lastError = null;
+
+  for (const path of cozeApiPaths) {
+    try {
+      await streamAssistantReplyFromPath(path, question, assistantId, signal, setMessages, setServiceState);
+      return;
+    } catch (error) {
+      if (signal.aborted) throw error;
+      lastError = error;
+    }
+  }
+
+  throw new Error(formatProxyFailure("AI 接口", lastError));
+}
+
+async function streamAssistantReplyFromPath(path, question, assistantId, signal, setMessages, setServiceState) {
+  const response = await fetch(path, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1146,7 +1361,22 @@ async function streamAssistantReply(question, assistantId, signal, setMessages, 
 }
 
 async function requestCozeSpeech(text, signal) {
-  const response = await fetch(cozeSpeechApiPath, {
+  let lastError = null;
+
+  for (const path of cozeSpeechApiPaths) {
+    try {
+      return await requestCozeSpeechFromPath(path, text, signal);
+    } catch (error) {
+      if (signal.aborted) throw error;
+      lastError = error;
+    }
+  }
+
+  throw new Error(formatProxyFailure("Coze 音色生成", lastError));
+}
+
+async function requestCozeSpeechFromPath(path, text, signal) {
+  const response = await fetch(path, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1182,6 +1412,14 @@ async function requestCozeSpeech(text, signal) {
   }
 
   return URL.createObjectURL(await response.blob());
+}
+
+function formatProxyFailure(label, error) {
+  const detail = error?.message || "所有代理都不可用";
+  if (/Failed to fetch|NetworkError|Load failed/i.test(detail)) {
+    return `${label}暂时未连通：代理服务不可访问或未返回跨域响应`;
+  }
+  return `${label}暂时未连通：${detail}`;
 }
 
 function base64ToAudioBlob(value, mimeType) {
@@ -1416,7 +1654,7 @@ function ProjectCard({ project }) {
   );
 }
 
-function ProjectDetail({ project }) {
+function ProjectDetail({ project, auth }) {
   return (
     <>
       <header className="detail-header">
@@ -1433,34 +1671,36 @@ function ProjectDetail({ project }) {
               {project.stack.map((tag) => <span key={tag}>{tag}</span>)}
             </div>
           </div>
-          <MediaBox project={project} />
+          {auth.isAuthenticated ? <MediaBox project={project} /> : null}
         </section>
         <section className="detail-grid">
           <DetailBlock title="项目背景" items={project.background} />
           <DetailBlock title="关键职责" items={project.responsibilities} />
           <DetailBlock title="成果与指标" items={project.results} />
-          <DetailBlock title="面试讲法" items={project.interviewAngles} />
+          <PrivateDetailBlock title="面试讲法" items={project.interviewAngles} auth={auth} />
         </section>
-        <section className="detail-section">
-          <h2>Demo / 视频 / 截图补充建议</h2>
-          <div className="asset-grid">
-            {project.assets.map((asset) => (
-              <article className={asset.url ? "asset-item has-url" : "asset-item"} key={asset.title}>
-                <PlayCircle size={22} />
-                <h3>{asset.title}</h3>
-                <p>{asset.text}</p>
-                <span>{asset.type} · {asset.status}</span>
-                {asset.url ? (
-                  <a className="asset-link" href={asset.url} target="_blank" rel="noreferrer">
-                    打开素材 <ArrowUpRight size={15} />
-                  </a>
-                ) : (
-                  <small>{asset.privacyLevel === "needs-redaction" ? "需脱敏后公开" : "素材整理中"}</small>
-                )}
-              </article>
-            ))}
-          </div>
-        </section>
+        {auth.isAuthenticated ? (
+          <section className="detail-section">
+            <h2>Demo / 视频 / 截图补充建议</h2>
+            <div className="asset-grid">
+              {project.assets.map((asset) => (
+                <article className={asset.url ? "asset-item has-url" : "asset-item"} key={asset.title}>
+                  <PlayCircle size={22} />
+                  <h3>{asset.title}</h3>
+                  <p>{asset.text}</p>
+                  <span>{asset.type} · {asset.status}</span>
+                  {asset.url ? (
+                    <a className="asset-link" href={asset.url} target="_blank" rel="noreferrer">
+                      打开素材 <ArrowUpRight size={15} />
+                    </a>
+                  ) : (
+                    <small>{asset.privacyLevel === "needs-redaction" ? "需脱敏后公开" : "素材整理中"}</small>
+                  )}
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </main>
       <Footer />
     </>
@@ -1507,6 +1747,13 @@ function DetailBlock({ title, items }) {
       </ul>
     </article>
   );
+}
+
+function PrivateDetailBlock({ title, items, auth }) {
+  if (!auth.isAuthenticated) {
+    return null;
+  }
+  return <DetailBlock title={title} items={items} />;
 }
 
 function NotFound() {

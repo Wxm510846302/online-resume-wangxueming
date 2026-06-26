@@ -8,6 +8,10 @@ const COZE_SPEECH_URL = "https://api.coze.cn/v1/audio/speech";
 const DEFAULT_COZE_VOICE_ID = "7426725529589645339";
 const DEFAULT_BOT_ID = "7654798932023181327";
 const DEFAULT_ALLOWED_ORIGIN = "https://wxm510846302.github.io";
+const DEFAULT_CHAT_TIMEOUT_MS = 55000;
+const DEFAULT_SPEECH_TIMEOUT_MS = 30000;
+const MAX_QUESTION_LENGTH = 600;
+const MAX_SPEECH_TEXT_LENGTH = 600;
 const LOCAL_ENV = loadLocalEnv();
 
 exports.main = async function (event = {}, context = {}) {
@@ -31,7 +35,7 @@ exports.main = async function (event = {}, context = {}) {
     return handleSpeechRequest(body, token, origin);
   }
 
-  const question = String(body.question || "").trim();
+  const question = String(body.question || "").trim().slice(0, MAX_QUESTION_LENGTH);
   if (!question) {
     return response(400, { error: "Question is required" }, origin);
   }
@@ -43,7 +47,7 @@ exports.main = async function (event = {}, context = {}) {
     method: "POST",
     contentType: "json",
     dataType: "text",
-    timeout: 55000,
+    timeout: getTimeoutMs("COZE_CHAT_TIMEOUT_MS", DEFAULT_CHAT_TIMEOUT_MS),
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "text/event-stream",
@@ -52,7 +56,7 @@ exports.main = async function (event = {}, context = {}) {
       bot_id: botId,
       user_id: userId,
       stream: true,
-      auto_save_history: true,
+      auto_save_history: false,
       additional_messages: [
         {
           role: "user",
@@ -81,22 +85,24 @@ exports.main = async function (event = {}, context = {}) {
     return response(502, { error: "Coze did not return answer text" }, origin);
   }
 
-  const record = {
-    timestamp: new Date().toISOString(),
-    ip: getClientIp(event),
-    userAgent: getHeader(event, "user-agent"),
-    userId,
-    botId,
-    question,
-    answer,
-  };
-  await saveConversation(record);
+  if (shouldSaveConversations()) {
+    const record = {
+      timestamp: new Date().toISOString(),
+      ip: getClientIp(event),
+      userAgent: getHeader(event, "user-agent"),
+      userId,
+      botId,
+      question,
+      answer,
+    };
+    await saveConversation(record);
+  }
 
   return response(200, { answer }, origin);
 };
 
 async function handleSpeechRequest(body, token, origin) {
-  const input = String(body.text || body.input || "").trim();
+  const input = String(body.text || body.input || "").trim().slice(0, MAX_SPEECH_TEXT_LENGTH);
   if (!input) {
     return response(400, { error: "Speech text is required" }, origin);
   }
@@ -105,7 +111,7 @@ async function handleSpeechRequest(body, token, origin) {
     method: "POST",
     contentType: "json",
     dataType: "arraybuffer",
-    timeout: 55000,
+    timeout: getTimeoutMs("COZE_SPEECH_TIMEOUT_MS", DEFAULT_SPEECH_TIMEOUT_MS),
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "audio/mpeg, audio/*, application/json",
@@ -260,6 +266,16 @@ function getVoiceId() {
 
 function getConfigValue(key) {
   return process.env[key] || LOCAL_ENV[key] || "";
+}
+
+function shouldSaveConversations() {
+  return getConfigValue("SAVE_CONVERSATIONS") === "true";
+}
+
+function getTimeoutMs(key, fallback) {
+  const value = Number(getConfigValue(key));
+  if (!Number.isFinite(value) || value <= 0) return fallback;
+  return Math.min(Math.max(Math.round(value), 5000), 30000);
 }
 
 function loadLocalEnv() {

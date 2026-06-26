@@ -3,7 +3,7 @@
   "dependencies": {},
   "cloudfunction-config": {
     "concurrency": 1,
-    "memorySize": 512,
+    "memorySize": 256,
     "path": "/coze-chat",
     "timeout": 60,
     "triggers": [],
