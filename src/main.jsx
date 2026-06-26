@@ -1,5 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ArrowLeft, ArrowUpRight, Blocks, BriefcaseBusiness, CalendarClock, Camera, CheckCircle2, ChevronDown, ChevronUp, Code2, Copy, Cpu, FileText, Gauge, Gamepad2, Github, Mail, MapPin, Menu, MessageCircle, PackageCheck, Phone, PlayCircle, RefreshCw, Send, ShieldCheck, Shuffle, Sparkles, Square, TimerReset, UserCog, Volume2, X } from "lucide-react";
 import { resume, projects } from "./data/resume.js";
 import { parseCozeSseChunk } from "./utils/cozeStream.js";
@@ -836,7 +838,7 @@ function AssistantChat({ assistant, compact = false }) {
             </span>
             {message.role === "assistant" ? (
               <div className="assistant-message-content">
-                <AssistantMarkdown text={message.text} />
+                <AssistantMarkdown text={message.text} typing={message.typing} />
                 {!message.pending && !message.typing && message.text ? (
                   <AssistantMessageActions
                     copied={copiedMessageId === message.id}
@@ -988,122 +990,47 @@ function AssistantMessageActions({
   );
 }
 
-function AssistantMarkdown({ text }) {
-  const blocks = parseAssistantMarkdown(text);
+function AssistantMarkdown({ text, typing = false }) {
+  const markdownText = prepareAssistantMarkdown(text || "", typing);
 
   return (
     <div className="assistant-markdown">
-      {blocks.map((block, index) => {
-        if (block.type === "ul") {
-          return (
-            <ul key={index}>
-              {block.items.map((item, itemIndex) => (
-                <li key={itemIndex}>{renderInlineMarkdown(item, itemIndex)}</li>
-              ))}
-            </ul>
-          );
-        }
-
-        if (block.type === "ol") {
-          return (
-            <ol key={index}>
-              {block.items.map((item, itemIndex) => (
-                <li key={itemIndex}>{renderInlineMarkdown(item, itemIndex)}</li>
-              ))}
-            </ol>
-          );
-        }
-
-        return <p key={index}>{renderInlineMarkdown(block.text, index)}</p>;
-      })}
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          a: ({ href, children, ...props }) => (
+            <a href={href} target="_blank" rel="noreferrer" {...props}>
+              {children}
+            </a>
+          ),
+        }}
+      >
+        {markdownText}
+      </ReactMarkdown>
     </div>
   );
 }
 
-function parseAssistantMarkdown(text) {
-  const lines = text.split("\n");
-  const blocks = [];
-  let paragraph = [];
-  let list = null;
-
-  const flushParagraph = () => {
-    if (!paragraph.length) return;
-    blocks.push({ type: "p", text: paragraph.join("\n") });
-    paragraph = [];
-  };
-
-  const flushList = () => {
-    if (!list) return;
-    blocks.push(list);
-    list = null;
-  };
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      flushParagraph();
-      flushList();
-      continue;
-    }
-
-    const unordered = trimmed.match(/^[-*•]\s+(.+)$/);
-    if (unordered) {
-      flushParagraph();
-      if (!list || list.type !== "ul") {
-        flushList();
-        list = { type: "ul", items: [] };
-      }
-      list.items.push(unordered[1]);
-      continue;
-    }
-
-    const ordered = trimmed.match(/^\d+[.)]\s+(.+)$/);
-    if (ordered) {
-      flushParagraph();
-      if (!list || list.type !== "ol") {
-        flushList();
-        list = { type: "ol", items: [] };
-      }
-      list.items.push(ordered[1]);
-      continue;
-    }
-
-    flushList();
-    paragraph.push(trimmed);
-  }
-
-  flushParagraph();
-  flushList();
-
-  return blocks.length ? blocks : [{ type: "p", text: "" }];
+function prepareAssistantMarkdown(text, typing = false) {
+  const stableText = typing ? hideUnclosedInlineMarkdown(text) : text;
+  return stableText.replace(/(\*\*|__|~~)([“‘"《（(【「『])/g, "$1\u200b$2");
 }
 
-function renderInlineMarkdown(text, keyPrefix = "inline") {
-  const parts = [];
-  const pattern = /(\*\*[^*]+\*\*|`[^`]+`)/g;
-  let lastIndex = 0;
-  let match;
-
-  while ((match = pattern.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index));
+function hideUnclosedInlineMarkdown(text) {
+  return ["**", "__", "~~"].reduce((current, marker) => {
+    const indexes = [];
+    let fromIndex = 0;
+    while (fromIndex < current.length) {
+      const index = current.indexOf(marker, fromIndex);
+      if (index === -1) break;
+      indexes.push(index);
+      fromIndex = index + marker.length;
     }
 
-    const token = match[0];
-    const key = `${keyPrefix}-${match.index}`;
-    if (token.startsWith("**")) {
-      parts.push(<strong key={key}>{token.slice(2, -2)}</strong>);
-    } else {
-      parts.push(<code key={key}>{token.slice(1, -1)}</code>);
-    }
-    lastIndex = match.index + token.length;
-  }
-
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex));
-  }
-
-  return parts;
+    if (indexes.length % 2 === 0) return current;
+    const lastIndex = indexes[indexes.length - 1];
+    return `${current.slice(0, lastIndex)}${current.slice(lastIndex + marker.length)}`;
+  }, text);
 }
 
 async function streamAssistantReply(question, assistantId, signal, setMessages, setServiceState) {
