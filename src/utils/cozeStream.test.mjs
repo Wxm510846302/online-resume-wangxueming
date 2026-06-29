@@ -18,6 +18,24 @@ test("extracts assistant answer deltas from Coze SSE chunks", () => {
   assert.deepEqual(parseCozeSseChunk(chunk), {
     text: "你好，我是王学明 AI 分身",
     done: false,
+    conversationId: "",
+  });
+});
+
+test("captures the conversation id from Coze stream events", () => {
+  const chunk = [
+    "event:conversation.chat.created",
+    'data:{"id":"chat-1","conversation_id":"conv-abc","bot_id":"bot-1"}',
+    "",
+    "event:conversation.message.delta",
+    'data:{"role":"assistant","type":"answer","content":"你好","content_type":"text","conversation_id":"conv-abc"}',
+    "",
+  ].join("\n");
+
+  assert.deepEqual(parseCozeSseChunk(chunk), {
+    text: "你好",
+    done: false,
+    conversationId: "conv-abc",
   });
 });
 
@@ -34,6 +52,7 @@ test("marks the stream complete when Coze sends completion events", () => {
   assert.deepEqual(parseCozeSseChunk(chunk), {
     text: "",
     done: true,
+    conversationId: "",
   });
 });
 

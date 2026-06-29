@@ -1381,6 +1381,8 @@ async function streamAssistantReplyFromPath(path, question, assistantId, signal,
     body: JSON.stringify({
       question,
       userId: getVisitorId(),
+      // 携带上一轮的会话 ID，让 Coze 把本轮提问续接到同一会话，保留上下文与记忆。
+      conversationId: getConversationId(),
     }),
     signal,
   });
@@ -1417,7 +1419,9 @@ async function streamAssistantReplyFromPath(path, question, assistantId, signal,
 
     const chunk = buffer.slice(0, boundary + 2);
     buffer = buffer.slice(boundary + 2);
-    const { text } = parseCozeSseChunk(chunk);
+    const { text, conversationId } = parseCozeSseChunk(chunk);
+    // 一拿到会话 ID 就持久化，保证即使用户中途中断也能在下一轮续接同一会话。
+    rememberConversationId(conversationId);
     if (!text) continue;
 
     hasContent = true;
@@ -1426,7 +1430,8 @@ async function streamAssistantReplyFromPath(path, question, assistantId, signal,
   }
 
   if (buffer.trim()) {
-    const { text } = parseCozeSseChunk(buffer);
+    const { text, conversationId } = parseCozeSseChunk(buffer);
+    rememberConversationId(conversationId);
     if (text) {
       hasContent = true;
       setServiceState("replying");
@@ -1582,6 +1587,29 @@ function getVisitorId() {
   const next = `visitor-${crypto.randomUUID?.() || Date.now()}`;
   window.localStorage.setItem(key, next);
   return next;
+}
+
+// 会话 ID 与访客绑定并持久化在 localStorage，保证同一访客的多轮对话续接到
+// 同一个 Coze 会话，聊天记录才能正确累积进 AI 长期记忆，而不是每条消息新开一个会话。
+const CONVERSATION_ID_KEY = "resume-coze-conversation-id";
+
+function getConversationId() {
+  try {
+    return window.localStorage.getItem(CONVERSATION_ID_KEY) || "";
+  } catch {
+    // 隐私模式或存储被禁用时降级为无会话 ID，不影响单轮问答。
+    return "";
+  }
+}
+
+function rememberConversationId(conversationId) {
+  if (typeof conversationId !== "string" || !conversationId) return;
+  if (conversationId === getConversationId()) return;
+  try {
+    window.localStorage.setItem(CONVERSATION_ID_KEY, conversationId);
+  } catch {
+    // 写入失败时静默降级，下一轮仍会尝试携带已知会话 ID。
+  }
 }
 
 function FloatingAssistant({ assistant }) {
