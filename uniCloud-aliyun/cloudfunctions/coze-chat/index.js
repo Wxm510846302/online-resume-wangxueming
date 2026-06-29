@@ -42,8 +42,12 @@ exports.main = async function (event = {}, context = {}) {
 
   const botId = getBotId();
   const userId = safeId(body.userId) || buildUserId(event);
+  const conversationId = safeId(body.conversationId);
+  const upstreamUrl = conversationId
+    ? `${COZE_CHAT_URL}?conversation_id=${encodeURIComponent(conversationId)}`
+    : COZE_CHAT_URL;
 
-  const cozeRes = await uniCloud.httpclient.request(COZE_CHAT_URL, {
+  const cozeRes = await uniCloud.httpclient.request(upstreamUrl, {
     method: "POST",
     contentType: "json",
     dataType: "text",
@@ -56,7 +60,7 @@ exports.main = async function (event = {}, context = {}) {
       bot_id: botId,
       user_id: userId,
       stream: true,
-      auto_save_history: false,
+      auto_save_history: true,
       additional_messages: [
         {
           role: "user",
@@ -75,12 +79,13 @@ exports.main = async function (event = {}, context = {}) {
     return response(cozeRes.status, { error: "Coze API request failed", detail: rawText }, origin);
   }
 
-  let answer = "";
+  let chatResult;
   try {
-    answer = parseCozeAnswer(rawText);
+    chatResult = parseCozeAnswer(rawText);
   } catch (error) {
     return response(502, { error: "Coze API stream failed", detail: error.message }, origin);
   }
+  const { answer, conversationId: nextConversationId } = chatResult;
   if (!answer) {
     return response(502, { error: "Coze did not return answer text" }, origin);
   }
@@ -92,13 +97,14 @@ exports.main = async function (event = {}, context = {}) {
       userAgent: getHeader(event, "user-agent"),
       userId,
       botId,
+      conversationId: nextConversationId || conversationId,
       question,
       answer,
     };
     await saveConversation(record);
   }
 
-  return response(200, { answer }, origin);
+  return response(200, { answer, conversationId: nextConversationId || conversationId }, origin);
 };
 
 async function handleSpeechRequest(body, token, origin) {
@@ -160,11 +166,14 @@ function parseRequestBody(event) {
 function parseCozeAnswer(text) {
   let deltaAnswer = "";
   let completedAnswer = "";
+  let conversationId = "";
   for (const block of text.split(/\n\n+/)) {
     const event = readSseField(block, "event");
     if (
+      event !== "conversation.chat.created" &&
       event !== "conversation.message.delta" &&
       event !== "conversation.message.completed" &&
+      event !== "conversation.chat.completed" &&
       event !== "conversation.chat.failed"
     ) continue;
 
@@ -173,6 +182,9 @@ function parseCozeAnswer(text) {
 
     try {
       const payload = JSON.parse(data);
+      if (!conversationId && typeof payload.conversation_id === "string") {
+        conversationId = payload.conversation_id;
+      }
       if (event === "conversation.chat.failed") {
         const message = payload.last_error?.msg || payload.error?.message || "Conversation failed";
         throw new Error(message);
@@ -192,7 +204,10 @@ function parseCozeAnswer(text) {
       if (event === "conversation.chat.failed") throw error;
     }
   }
-  return (completedAnswer || deltaAnswer).trim();
+  return {
+    answer: (completedAnswer || deltaAnswer).trim(),
+    conversationId,
+  };
 }
 
 function readSseField(block, fieldName) {

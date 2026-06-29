@@ -1399,6 +1399,7 @@ async function streamAssistantReplyFromPath(path, question, assistantId, signal,
     if (!answer) {
       throw new Error(payload?.error || "AI 接口没有返回可展示内容");
     }
+    rememberConversationId(payload?.conversationId || payload?.data?.conversationId);
     setServiceState("replying");
     await typeAssistantText(assistantId, answer, setMessages, signal);
     return;

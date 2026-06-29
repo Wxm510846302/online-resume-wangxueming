@@ -29,11 +29,11 @@ concurrency=1
 timeout=60s
 COZE_CHAT_TIMEOUT_MS=55000
 COZE_SPEECH_TIMEOUT_MS=30000
-auto_save_history=false
+auto_save_history=true
 SAVE_CONVERSATIONS=false
 ```
 
-With this setup, the function still avoids the old 512MB cost and skips extra database writes, but a normal AI answer is not cut off by a very short 15s client timeout. `concurrency=1` is intentional: Alibaba Cloud uniCloud requires at least 512MB memory when concurrency is greater than 1, so keeping concurrency at 1 allows the lower 256MB memory setting. In the worst case, one chat invocation is capped around `0.25 * 55 = 13.75 GBs` before platform overhead.
+With this setup, the function still avoids the old 512MB cost and skips extra database writes, but a normal AI answer is not cut off by a very short 15s client timeout. Coze `auto_save_history` stays enabled so multi-turn resume conversations can feed the bot's memory configuration. `concurrency=1` is intentional: Alibaba Cloud uniCloud requires at least 512MB memory when concurrency is greater than 1, so keeping concurrency at 1 allows the lower 256MB memory setting. In the worst case, one chat invocation is capped around `0.25 * 55 = 13.75 GBs` before platform overhead.
 
 ## GitHub Pages
 
@@ -76,3 +76,5 @@ resume_ai_conversations
 ```
 
 If database writing fails, it falls back to `console.log`.
+
+The frontend sends the previous `conversationId` from localStorage on every chat request, and the uniCloud proxy forwards it to Coze. This keeps a visitor's messages in the same Coze conversation instead of creating an isolated conversation for every question.

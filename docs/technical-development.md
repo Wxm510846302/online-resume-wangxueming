@@ -294,7 +294,8 @@ uniCloud-aliyun/cloudfunctions/coze-chat/index.js
 
 ```json
 {
-  "answer": "..."
+  "answer": "...",
+  "conversationId": "..."
 }
 ```
 
@@ -327,6 +328,14 @@ COZE_ACCESS_TOKEN=你的 Coze Token
 ```text
 resume-coze-user-id
 ```
+
+前端还会保存 Coze 返回的会话 ID，并在下一轮请求中继续传给云函数：
+
+```text
+resume-coze-conversation-id
+```
+
+云函数会把该 ID 作为 Coze `conversation_id` 转发，并保持 `auto_save_history=true`，让同一访客的有效多轮对话能进入 Coze 会话历史和智能体记忆链路。
 
 云函数还会通过请求头获取 IP：
 
@@ -695,4 +704,3 @@ curl -fsSL "https://wxm510846302.github.io/online-resume-wangxueming/?v=$(git re
 - 项目详情页是否可打开。
 - AI 悬浮窗是否 3 秒后自动打开。
 - AI 问答是否能返回真实结果或合理兜底。
-
