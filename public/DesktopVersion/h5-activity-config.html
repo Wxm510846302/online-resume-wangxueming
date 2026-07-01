@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>H5 活动配置后台</title>
+  <style>
+    :root {
+      --bg: #f4f6fb;
+      --card: #ffffff;
+      --border: #e5e9f2;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --success: #059669;
+      --danger: #dc2626;
+      --radius: 12px;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: linear-gradient(180deg, #eef2ff 0%, var(--bg) 220px);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .page {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+    }
+
+    .hero {
+      margin-bottom: 24px;
+    }
+
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      padding: 12px 0;
+      background: rgba(244, 246, 251, 0.92);
+      backdrop-filter: blur(8px);
+    }
+
+    .import-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+    }
+
+    .import-row label {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .import-row input {
+      width: 120px;
+      flex: 0 0 auto;
+    }
+
+    .import-row .hint {
+      flex: 1 1 200px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .card h2 {
+      margin: 0 0 16px;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card h2::before {
+      content: "";
+      width: 4px;
+      height: 18px;
+      border-radius: 999px;
+      background: var(--primary);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field.full { grid-column: 1 / -1; }
+
+    label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="datetime-local"],
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 14px;
+      background: #fff;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    textarea {
+      min-height: 88px;
+      resize: vertical;
+    }
+
+    .json-textarea {
+      min-height: 120px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+    }
+
+    .checkbox-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .checkbox-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fafbff;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .checkbox-item input { width: auto; }
+
+    .list-block {
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .list-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .list-item.with-preview {
+      grid-template-columns: 1fr auto auto;
+    }
+
+    .preview {
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      object-fit: contain;
+      background: #f8fafc;
+    }
+
+    .preview-box {
+      display: none;
+      margin-top: 8px;
+      padding: 8px;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      background: #f8fafc;
+      width: fit-content;
+      max-width: 100%;
+    }
+
+    .preview-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      min-width: 88px;
+    }
+
+    .preview-size {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.3;
+      white-space: nowrap;
+    }
+
+    .preview-box .preview-size {
+      margin-top: 6px;
+    }
+
+    .preview-cell .preview-size {
+      max-width: 96px;
+      white-space: normal;
+      text-align: center;
+      font-size: 10px;
+    }
+
+    .preview-block {
+      display: block;
+      max-width: 280px;
+      max-height: 160px;
+      width: auto;
+      height: auto;
+    }
+
+    .preview-inline {
+      width: 80px;
+      height: 80px;
+    }
+
+    .share-item {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      background: #fbfdff;
+    }
+
+    .share-item-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.15s;
+    }
+
+    button:active { transform: translateY(1px); }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover { background: var(--primary-hover); }
+
+    .btn-secondary {
+      background: #eef2ff;
+      color: #3730a3;
+    }
+
+    .btn-secondary:hover { background: #e0e7ff; }
+
+    .btn-danger {
+      background: #fee2e2;
+      color: var(--danger);
+      padding: 8px 12px;
+    }
+
+    .btn-danger:hover { background: #fecaca; }
+
+    .btn-ghost {
+      background: #fff;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .response-box {
+      margin-top: 16px;
+      border-radius: 10px;
+      padding: 14px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      display: none;
+    }
+
+    .response-box.show { display: block; }
+    .response-box.success { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+    .response-box.error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+
+    .loading {
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    #responseSection {
+      display: none;
+      margin-bottom: 16px;
+    }
+
+    #responseSection.show {
+      display: block;
+    }
+
+    #jsonImportSection {
+      display: none;
+      margin-bottom: 16px;
+    }
+
+    #jsonImportSection.show {
+      display: block;
+    }
+
+    .json-import-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .json-import-textarea {
+      min-height: 220px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+    }
+
+    @media (max-width: 640px) {
+      .list-item.with-preview {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="hero">
+      <h1>H5 活动配置后台</h1>
+      <p>可视化编辑活动参数，提交后通过本地代理 POST 到 merge 接口</p>
+    </div>
+
+    <div class="toolbar">
+      <div class="import-row">
+        <label for="importId">导入配置</label>
+        <input id="importId" type="number" min="1" step="1" placeholder="活动 ID" />
+        <button type="button" class="btn-secondary" id="importBtn">从接口加载</button>
+        <span class="hint">输入 id 后加载已有活动配置，自动回填表单</span>
+      </div>
+      <button type="button" class="btn-primary" id="submitBtn">提交配置</button>
+      <button type="button" class="btn-secondary" id="resetBtn">恢复示例数据</button>
+      <button type="button" class="btn-secondary" id="importJsonBtn">导入 JSON</button>
+      <button type="button" class="btn-ghost" id="previewJsonBtn">预览 JSON</button>
+    </div>
+
+    <section class="card" id="jsonImportSection">
+      <h2>粘贴 JSON 配置</h2>
+      <p class="hint" style="margin:0 0 12px;">支持直接粘贴活动配置对象，或接口返回的完整 JSON（会自动提取 data）</p>
+      <textarea id="jsonImportInput" class="json-import-textarea" placeholder='{"name":"活动名称","style":4,...}'></textarea>
+      <div class="json-import-actions">
+        <button type="button" class="btn-primary" id="applyJsonBtn">确认导入</button>
+        <button type="button" class="btn-ghost" id="cancelJsonBtn">取消</button>
+        <button type="button" class="btn-ghost" id="formatJsonBtn">格式化 JSON</button>
+      </div>
+    </section>
+
+    <section class="card" id="responseSection">
+      <h2>提交结果</h2>
+      <div id="responseBox" class="response-box"></div>
+    </section>
+
+    <form id="configForm">
+      <section class="card">
+        <h2>基础信息</h2>
+        <div class="grid">
+          <div class="field">
+            <label for="configId">活动 ID id</label>
+            <input id="configId" type="number" min="1" step="1" placeholder="留空为新增，填写为修改" />
+            <span class="hint" id="idModeHint">当前模式：新增</span>
+          </div>
+          <div class="field">
+            <label for="name">活动名称 name</label>
+            <input id="name" name="name" type="text" />
+          </div>
+          <div class="field">
+            <label for="subtitle">副标题 subtitle</label>
+            <input id="subtitle" name="subtitle" type="text" />
+          </div>
+          <div class="field">
+            <label for="desc">描述 desc</label>
+            <textarea id="desc" name="desc"></textarea>
+          </div>
+          <div class="field">
+            <label for="style">样式 style</label>
+            <input id="style" name="style" type="number" />
+          </div>
+          <div class="field">
+            <label for="interaction">互动类型 interaction</label>
+            <input id="interaction" name="interaction" type="number" />
+          </div>
+          <div class="field">
+            <label for="interactiveTitle">互动标题 interactiveTitle</label>
+            <input id="interactiveTitle" name="interactiveTitle" type="text" />
+          </div>
+          <div class="field">
+            <label for="inputName">输入框名称 inputName</label>
+            <input id="inputName" name="inputName" type="text" />
+          </div>
+          <div class="field">
+            <label for="lanternText">灯笼文案 lanternText</label>
+            <input id="lanternText" name="lanternText" type="text" />
+          </div>
+          <div class="field">
+            <label for="nickName">昵称 nickName</label>
+            <input id="nickName" type="text" />
+          </div>
+          <div class="field">
+            <label for="channel">渠道 channel</label>
+            <input id="channel" type="text" placeholder="app_Ads_ceyice_activity-111-null" />
+          </div>
+          <div class="field">
+            <label for="activityStatus">活动状态 activityStatus</label>
+            <input id="activityStatus" type="number" />
+          </div>
+          <div class="field">
+            <label for="activityType">活动类型 activityType</label>
+            <input id="activityType" type="number" placeholder="留空为 null" />
+          </div>
+          <div class="field full">
+            <label for="h5Url">H5 页面地址 h5Url</label>
+            <input id="h5Url" type="text" placeholder="https://test-kk.likeduoduiyi.cn/barrage.html" />
+          </div>
+          <div class="field full">
+            <label for="joinUrl">参与链接 joinUrl</label>
+            <input id="joinUrl" type="text" />
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>页面背景</h2>
+        <div class="grid">
+          <div class="field">
+            <label for="backgroundColour">背景色 backgroundColour</label>
+            <input id="backgroundColour" type="text" placeholder="#FFFFFF 或留空" />
+          </div>
+          <div class="field full">
+            <label for="backgroundUrl">背景图 backgroundUrl</label>
+            <input id="backgroundUrl" type="text" data-preview="backgroundUrlPreview" />
+            <div class="preview-box" id="backgroundUrlPreviewBox">
+              <img id="backgroundUrlPreview" class="preview preview-block" alt="backgroundUrl preview" />
+              <div class="preview-size"></div>
+            </div>
+          </div>
+          <div class="field full">
+            <label for="headingImg">头图 headingImg</label>
+            <input id="headingImg" type="text" data-preview="headingImgPreview" />
+            <div class="preview-box" id="headingImgPreviewBox">
+              <img id="headingImgPreview" class="preview preview-block" alt="headingImg preview" />
+              <div class="preview-size"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>时间设置</h2>
+        <div class="grid">
+          <div class="field">
+            <label for="startTime">开始时间 startTime</label>
+            <input id="startTime" name="startTime" type="text" placeholder="2026-02-08 00:00:00" />
+            <span class="hint">格式：YYYY-MM-DD HH:mm:ss</span>
+          </div>
+          <div class="field">
+            <label for="endTime">结束时间 endTime</label>
+            <input id="endTime" name="endTime" type="text" placeholder="2026-07-10 23:59:59" />
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>开关配置</h2>
+        <div class="checkbox-row">
+          <label class="checkbox-item"><input id="allowDownLoad" type="checkbox" /> allowDownLoad 允许下载</label>
+          <label class="checkbox-item"><input id="allowWxFriend" type="checkbox" /> allowWxFriend 微信好友</label>
+          <label class="checkbox-item"><input id="allowWxFriendCircle" type="checkbox" /> allowWxFriendCircle 朋友圈</label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>小程序配置 miniProgram</h2>
+        <div class="grid">
+          <div class="field">
+            <label for="miniProgram_originId">原始 ID originId</label>
+            <input id="miniProgram_originId" type="text" placeholder="gh_842fa4d10718" />
+          </div>
+          <div class="field full">
+            <label for="miniProgram_path">小程序路径 path</label>
+            <input id="miniProgram_path" type="text" placeholder="/pages/subcontracting/appLiveShare/index?activityId=94&unionId=xxx" />
+          </div>
+          <div class="field">
+            <label for="miniProgram_title">分享标题 title</label>
+            <input id="miniProgram_title" type="text" placeholder="活动标题" />
+          </div>
+          <div class="field">
+            <label for="miniProgram_desc">分享描述 desc</label>
+            <input id="miniProgram_desc" type="text" placeholder="活动副标题" />
+          </div>
+          <div class="field full">
+            <label for="miniProgram_webUrl">兼容链接 webUrl</label>
+            <input id="miniProgram_webUrl" type="text" placeholder="https://..." />
+          </div>
+          <div class="field full">
+            <label for="miniProgram_picUrl">分享封面 picUrl</label>
+            <input id="miniProgram_picUrl" type="text" data-preview="miniProgram_picUrlPreview" />
+            <div class="preview-box" id="miniProgram_picUrlPreviewBox">
+              <img id="miniProgram_picUrlPreview" class="preview preview-block" alt="miniProgram picUrl preview" />
+              <div class="preview-size"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>分享配置</h2>
+        <div class="grid">
+          <div class="field">
+            <label for="wxFriendShareType">微信好友分享类型 wxFriendShareType</label>
+            <select id="wxFriendShareType">
+              <option value="miniProgram">miniProgram</option>
+              <option value="url">url</option>
+              <option value="previewImage">previewImage</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="wxFriendCircleShareType">朋友圈分享类型 wxFriendCircleShareType</label>
+            <select id="wxFriendCircleShareType">
+              <option value="url">url</option>
+              <option value="previewImage">previewImage</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label for="shareImg">分享图 shareImg</label>
+            <input id="shareImg" type="text" data-preview="shareImgPreview" />
+            <div class="preview-box" id="shareImgPreviewBox">
+              <img id="shareImgPreview" class="preview preview-block" alt="shareImg preview" />
+              <div class="preview-size"></div>
+            </div>
+          </div>
+          <div class="field full">
+            <label>分享图列表 shareImgList</label>
+            <div class="list-block" id="shareImgList"></div>
+            <button type="button" class="btn-secondary" data-add-list="shareImgList">+ 添加图片 URL</button>
+          </div>
+          <div class="field full">
+            <label>发布配置 publishConfig（数字数组，逗号分隔或逐项添加）</label>
+            <div class="list-block" id="publishConfig"></div>
+            <button type="button" class="btn-secondary" data-add-number-list="publishConfig">+ 添加数字</button>
+          </div>
+          <div class="field full">
+            <label>分享图层 shareList</label>
+            <div id="shareList"></div>
+            <button type="button" class="btn-secondary" id="addShareItemBtn">+ 添加 shareList 项</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>图片资源</h2>
+        <div class="grid">
+          <div class="field full">
+            <label for="coverUrl">封面 coverUrl</label>
+            <input id="coverUrl" type="text" data-preview="coverUrlPreview" />
+            <div class="preview-box" id="coverUrlPreviewBox">
+              <img id="coverUrlPreview" class="preview preview-block" alt="cover preview" />
+              <div class="preview-size"></div>
+            </div>
+          </div>
+          <div class="field full">
+            <label for="materialStyleImageUrl">素材样式图 materialStyleImageUrl</label>
+            <input id="materialStyleImageUrl" type="text" data-preview="materialStyleImageUrlPreview" />
+            <div class="preview-box" id="materialStyleImageUrlPreviewBox">
+              <img id="materialStyleImageUrlPreview" class="preview preview-block" alt="material preview" />
+              <div class="preview-size"></div>
+            </div>
+          </div>
+          <div class="field full">
+            <label for="publishButton">发布按钮 publishButton</label>
+            <input id="publishButton" type="text" data-preview="publishButtonPreview" />
+            <div class="preview-box" id="publishButtonPreviewBox">
+              <img id="publishButtonPreview" class="preview preview-block" alt="publishButton preview" />
+              <div class="preview-size"></div>
+            </div>
+          </div>
+          <div class="field full">
+            <label for="publishIcon">发布图标 publishIcon</label>
+            <input id="publishIcon" type="text" data-preview="publishIconPreview" />
+            <div class="preview-box" id="publishIconPreviewBox">
+              <img id="publishIconPreview" class="preview preview-block" alt="publishIcon preview" />
+              <div class="preview-size"></div>
+            </div>
+          </div>
+          <div class="field full">
+            <label for="publishImg">发布图 publishImg</label>
+            <input id="publishImg" type="text" data-preview="publishImgPreview" />
+            <div class="preview-box" id="publishImgPreviewBox">
+              <img id="publishImgPreview" class="preview preview-block" alt="publishImg preview" />
+              <div class="preview-size"></div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="contentIcon">内容图标 contentIcon</label>
+            <input id="contentIcon" type="text" data-preview="contentIconPreview" />
+            <div class="preview-box" id="contentIconPreviewBox">
+              <img id="contentIconPreview" class="preview preview-block" alt="contentIcon preview" />
+              <div class="preview-size"></div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="likeIcon">点赞图标 likeIcon</label>
+            <input id="likeIcon" type="text" data-preview="likeIconPreview" />
+            <div class="preview-box" id="likeIconPreviewBox">
+              <img id="likeIconPreview" class="preview preview-block" alt="likeIcon preview" />
+              <div class="preview-size"></div>
+            </div>
+          </div>
+          <div class="field full">
+            <label for="lanternIcon">灯笼单图标 lanternIcon</label>
+            <input id="lanternIcon" type="text" data-preview="lanternIconPreview" />
+            <div class="preview-box" id="lanternIconPreviewBox">
+              <img id="lanternIconPreview" class="preview preview-block" alt="lanternIcon preview" />
+              <div class="preview-size"></div>
+            </div>
+          </div>
+          <div class="field full">
+            <label>详情图 detailImg</label>
+            <div class="list-block" id="detailImg"></div>
+            <button type="button" class="btn-secondary" data-add-list="detailImg">+ 添加详情图 URL</button>
+          </div>
+          <div class="field full">
+            <label>标签素材 tagMaterialUrlList</label>
+            <div class="list-block" id="tagMaterialUrlList"></div>
+            <button type="button" class="btn-secondary" data-add-list="tagMaterialUrlList">+ 添加标签素材 URL</button>
+          </div>
+          <div class="field full">
+            <label>灯笼图标 lanternIconList</label>
+            <div class="list-block" id="lanternIconList"></div>
+            <button type="button" class="btn-secondary" data-add-list="lanternIconList">+ 添加灯笼图标 URL</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>投票与结果</h2>
+        <div class="grid">
+          <div class="field">
+            <label for="dayVotes">每日票数 dayVotes</label>
+            <input id="dayVotes" type="number" placeholder="留空为 null" />
+          </div>
+          <div class="field">
+            <label for="rewardVotes">奖励票数 rewardVotes</label>
+            <input id="rewardVotes" type="number" placeholder="留空为 null" />
+          </div>
+          <div class="field">
+            <label for="resultType">结果类型 resultType</label>
+            <input id="resultType" type="number" placeholder="留空为 null" />
+          </div>
+          <div class="field full">
+            <label for="resultButton">结果按钮 resultButton</label>
+            <input id="resultButton" type="text" data-preview="resultButtonPreview" />
+            <div class="preview-box" id="resultButtonPreviewBox">
+              <img id="resultButtonPreview" class="preview preview-block" alt="resultButton preview" />
+              <div class="preview-size"></div>
+            </div>
+          </div>
+          <div class="field full">
+            <label for="sku">SKU sku</label>
+            <input id="sku" type="text" placeholder="留空为 null，对象可填 JSON" />
+          </div>
+          <div class="field full">
+            <label for="resultJson">结果列表 result（JSON 数组）</label>
+            <textarea id="resultJson" class="json-textarea" placeholder="[]"></textarea>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>互动列表</h2>
+        <div class="grid">
+          <div class="field full">
+            <label>提醒 reminders</label>
+            <div class="list-block" id="reminders"></div>
+            <button type="button" class="btn-secondary" data-add-list="reminders">+ 添加 reminder</button>
+          </div>
+          <div class="field full">
+            <label>回复 replyList</label>
+            <div class="list-block" id="replyList"></div>
+            <button type="button" class="btn-secondary" data-add-list="replyList">+ 添加 reply</button>
+          </div>
+          <div class="field full">
+            <label for="optionsJson">选项 options（JSON 数组）</label>
+            <textarea id="optionsJson" class="json-textarea" placeholder="[]"></textarea>
+          </div>
+          <div class="field full">
+            <label for="questionListJson">问题列表 questionList（JSON 数组）</label>
+            <textarea id="questionListJson" class="json-textarea" placeholder="[]"></textarea>
+          </div>
+        </div>
+      </section>
+    </form>
+  </div>
+
+  <script>
+    const API_BASES = {
+      test: "https://test-kkapi.likeduoduiyi.cn",
+      prod: "https://kapi.likeduoduiyi.cn"
+    };
+    const pageParams = new URLSearchParams(window.location.search);
+    const API_ENV = API_BASES[pageParams.get("env")] ? pageParams.get("env") : "test";
+    const API_BASE = API_BASES[API_ENV];
+    const DETAIL_API_URL = `${API_BASE}/sae-gateway/kkhc-bizcenter-app/today/activity/detail`;
+    const MERGE_API_URL = `${API_BASE}/sae-gateway/kkhc-bizcenter-lms/today/activity/merge`;
+
+    async function parseApiResponse(response) {
+      const text = await response.text();
+      try {
+        return JSON.parse(text);
+      } catch {
+        return { raw: text };
+      }
+    }
+
+    const DEFAULT_CONFIG = {
+      activityStatus: 1,
+      activityType: null,
+      allowDownLoad: true,
+      allowWxFriend: true,
+      allowWxFriendCircle: true,
+      backgroundColour: "",
+      backgroundUrl: "",
+      channel: "app_Ads_ceyice_activity-111-null",
+      contentIcon: "https://ttl.likeduoduiyi.cn/1",
+      coverUrl: "https://ttl.likeduoduiyi.cn/guyu/duanwu_liebiaoye_head.png",
+      dayVotes: null,
+      desc: "在这里输入你的粽子～",
+      detailImg: [
+        "https://ttl.likeduoduiyi.cn/guyu/duanwu_detail_img.png"
+      ],
+      endTime: "2026-07-10 23:59:59",
+      h5Url: "https://test-kk.likeduoduiyi.cn/barrage.html",
+      headingImg: "",
+      id: 111,
+      inputName: "请选择粽子馅",
+      interaction: 2,
+      interactiveTitle: "弹幕",
+      joinUrl: "",
+      lanternIcon: "",
+      lanternIconList: [
+        "https://ttl.likeduoduiyi.cn/guyu/duanwu_zongzipi01.png",
+        "https://ttl.likeduoduiyi.cn/guyu/duanwu_zongzipi02.png",
+        "https://ttl.likeduoduiyi.cn/guyu/duanwu_zongzipi03.png",
+        "https://ttl.likeduoduiyi.cn/guyu/duanwu_zongzipi04.png",
+        "https://ttl.likeduoduiyi.cn/guyu/duanwu_zongzipi05.png"
+      ],
+      lanternText: "请选择你心仪的粽子",
+      likeIcon: "https://ttl.likeduoduiyi.cn/1",
+      materialStyleImageUrl: "https://ttl.likeduoduiyi.cn/guyu/duanwu_longzhou.png",
+      miniProgram: {
+        desc: "活动副标题",
+        originId: "gh_842fa4d10718",
+        path: "/pages/subcontracting/appLiveShare/index?activityId=94&unionId=xxx",
+        picUrl: "https://ttl.likeduoduiyi.cn/guyu/touxiang2.jpeg",
+        title: "活动标题",
+        webUrl: "www.baidu.com"
+      },
+      name: "谷雨测试",
+      nickName: "",
+      options: [],
+      publishButton: "https://ttl.likeduoduiyi.cn/guyu/duanwu_publish_button.png",
+      publishConfig: [0, 2],
+      publishIcon: "https://ttl.likeduoduiyi.cn/guyu/duanwu_publish_icon2.png",
+      publishImg: "https://ttl.likeduoduiyi.cn/guyu/duanwu_publish_img.png",
+      questionList: [],
+      reminders: ["1"],
+      replyList: ["1"],
+      result: [],
+      resultButton: "",
+      resultType: null,
+      rewardVotes: null,
+      shareImg: "https://ttl.likeduoduiyi.cn/guyu/duanwu_share_img2.jpeg",
+      shareImgList: [
+        "https://ttl.likeduoduiyi.cn/guyu/duanwu_share_img.png",
+        "https://ttl.likeduoduiyi.cn/guyu/duanwu_share_img2.jpeg"
+      ],
+      shareList: [
+        {
+          composite: 0,
+          customText: "",
+          font: null,
+          imgSize: "58*58",
+          positionX: 10,
+          positionY: 425,
+          shareType: 0,
+          skuUrl: ""
+        },
+        {
+          composite: 0,
+          customText: "",
+          font: null,
+          imgSize: "80*80",
+          positionX: 130,
+          positionY: 16,
+          shareType: 4,
+          skuUrl: "https://ttl.likeduoduiyi.cn/app/online/activity/%E4%B8%8B%E8%BD%BD%20(2).png"
+        },
+        {
+          composite: 0,
+          customText: "",
+          font: null,
+          imgSize: "72*72",
+          positionX: 258,
+          positionY: 418,
+          shareType: 3,
+          skuUrl: "https://ttl.likeduoduiyi.cn/app/online/activity/%E4%B8%8B%E8%BD%BD%20(2).png"
+        }
+      ],
+      sku: null,
+      startTime: "2026-02-08 00:00:00",
+      style: 4,
+      subtitle: "包你的大粽子",
+      tagMaterialUrlList: [
+        "https://ttl.likeduoduiyi.cn/guyu/duanwu_jiankang.jpeg",
+        "https://ttl.likeduoduiyi.cn/guyu/duanwu_kuaile.jpeg",
+        "https://ttl.likeduoduiyi.cn/guyu/duanwu_pingan.jpeg"
+      ],
+      wxFriendCircleShareType: "url",
+      wxFriendShareType: "miniProgram"
+    };
+
+    function setNullableNumber(id, value) {
+      document.getElementById(id).value =
+        value === null || value === undefined ? "" : value;
+    }
+
+    function readNullableNumber(id) {
+      const raw = document.getElementById(id).value.trim();
+      if (raw === "") return null;
+      const num = Number(raw);
+      return Number.isNaN(num) ? null : num;
+    }
+
+    function setJsonField(id, value) {
+      document.getElementById(id).value = JSON.stringify(value ?? [], null, 2);
+    }
+
+    function readJsonField(id) {
+      const raw = document.getElementById(id).value.trim();
+      if (!raw) return [];
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function setNullableSku(value) {
+      const input = document.getElementById("sku");
+      if (value === null || value === undefined) {
+        input.value = "";
+        return;
+      }
+      input.value = typeof value === "object" ? JSON.stringify(value) : String(value);
+    }
+
+    function readNullableSku() {
+      const raw = document.getElementById("sku").value.trim();
+      if (!raw) return null;
+      if (raw.startsWith("{") || raw.startsWith("[")) {
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return raw;
+        }
+      }
+      return raw;
+    }
+
+    function createListItem(value = "", withPreview = true) {
+      const row = document.createElement("div");
+      row.className = withPreview ? "list-item with-preview" : "list-item";
+
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = value;
+      input.placeholder = "请输入 URL 或文本";
+
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "btn-danger";
+      removeBtn.textContent = "删除";
+      removeBtn.addEventListener("click", () => row.remove());
+
+      row.appendChild(input);
+
+      if (withPreview) {
+        const cell = document.createElement("div");
+        cell.className = "preview-cell";
+
+        const img = document.createElement("img");
+        img.className = "preview preview-inline";
+        img.alt = "preview";
+
+        const sizeEl = document.createElement("div");
+        sizeEl.className = "preview-size";
+
+        cell.appendChild(img);
+        cell.appendChild(sizeEl);
+        updatePreview(input.value, img);
+        input.addEventListener("input", () => updatePreview(input.value, img));
+        row.appendChild(cell);
+      }
+
+      row.appendChild(removeBtn);
+      return row;
+    }
+
+    function createNumberListItem(value = 0) {
+      const row = document.createElement("div");
+      row.className = "list-item";
+
+      const input = document.createElement("input");
+      input.type = "number";
+      input.value = value;
+
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "btn-danger";
+      removeBtn.textContent = "删除";
+      removeBtn.addEventListener("click", () => row.remove());
+
+      row.appendChild(input);
+      row.appendChild(removeBtn);
+      return row;
+    }
+
+    function createShareItem(data = {}) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "share-item";
+      wrapper.innerHTML = `
+        <div class="share-item-head">
+          <span>shareList 配置项</span>
+          <button type="button" class="btn-danger remove-share">删除</button>
+        </div>
+        <div class="grid">
+          <div class="field">
+            <label>composite</label>
+            <input type="number" data-key="composite" value="${data.composite ?? 0}" />
+          </div>
+          <div class="field">
+            <label>shareType</label>
+            <input type="number" data-key="shareType" value="${data.shareType ?? 0}" />
+          </div>
+          <div class="field">
+            <label>imgSize</label>
+            <input type="text" data-key="imgSize" value="${data.imgSize ?? ""}" placeholder="58*58" />
+          </div>
+          <div class="field">
+            <label>positionX</label>
+            <input type="number" data-key="positionX" value="${data.positionX ?? 0}" />
+          </div>
+          <div class="field">
+            <label>positionY</label>
+            <input type="number" data-key="positionY" value="${data.positionY ?? 0}" />
+          </div>
+          <div class="field full">
+            <label>skuUrl</label>
+            <input type="text" data-key="skuUrl" value="${data.skuUrl ?? ""}" />
+          </div>
+          <div class="field">
+            <label>customText</label>
+            <input type="text" data-key="customText" value="${data.customText ?? ""}" />
+          </div>
+          <div class="field">
+            <label>font</label>
+            <input type="text" data-key="font" value="${data.font ?? ""}" placeholder="留空为 null" />
+          </div>
+        </div>
+      `;
+      wrapper.querySelector(".remove-share").addEventListener("click", () => wrapper.remove());
+      return wrapper;
+    }
+
+    function fillList(containerId, values, withPreview = true) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = "";
+      (values || []).forEach((value) => {
+        container.appendChild(createListItem(String(value), withPreview));
+      });
+    }
+
+    function fillNumberList(containerId, values) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = "";
+      (values || []).forEach((value) => {
+        container.appendChild(createNumberListItem(value));
+      });
+    }
+
+    function fillShareList(values) {
+      const container = document.getElementById("shareList");
+      container.innerHTML = "";
+      (values || []).forEach((item) => {
+        container.appendChild(createShareItem(item));
+      });
+    }
+
+    function formatPreviewSize(imgEl) {
+      const width = imgEl.naturalWidth;
+      const height = imgEl.naturalHeight;
+      if (!width || !height) return "";
+
+      const isInline = imgEl.closest(".preview-cell");
+      if (isInline) {
+        return `${width} × ${height}px`;
+      }
+
+      const displayWidth = Math.round(imgEl.getBoundingClientRect().width);
+      const displayHeight = Math.round(imgEl.getBoundingClientRect().height);
+      return `原图 ${width} × ${height}px · 预览 ${displayWidth} × ${displayHeight}px`;
+    }
+
+    function setPreviewSize(imgEl, text) {
+      const container = imgEl.closest(".preview-box, .preview-cell");
+      const sizeEl = container?.querySelector(".preview-size");
+      if (!sizeEl) return;
+
+      if (text) {
+        sizeEl.textContent = text;
+        sizeEl.style.display = "block";
+      } else {
+        sizeEl.textContent = "";
+        sizeEl.style.display = "none";
+      }
+    }
+
+    function hidePreview(imgEl) {
+      const container = imgEl.closest(".preview-box, .preview-cell");
+      imgEl.removeAttribute("src");
+      imgEl.style.display = "none";
+      setPreviewSize(imgEl, "");
+      if (container?.classList.contains("preview-box")) {
+        container.style.display = "none";
+      }
+    }
+
+    function updatePreview(url, imgEl) {
+      const container = imgEl.closest(".preview-box, .preview-cell");
+
+      if (url && /^https?:\/\//.test(url)) {
+        imgEl.onload = () => {
+          imgEl.style.display = "block";
+          if (container?.classList.contains("preview-box")) {
+            container.style.display = "inline-block";
+          }
+          requestAnimationFrame(() => {
+            setPreviewSize(imgEl, formatPreviewSize(imgEl));
+          });
+        };
+        imgEl.onerror = () => hidePreview(imgEl);
+        imgEl.src = url;
+        if (container?.classList.contains("preview-box")) {
+          container.style.display = "inline-block";
+        }
+      } else {
+        hidePreview(imgEl);
+      }
+    }
+
+    function bindPreviewInputs() {
+      document.querySelectorAll("[data-preview]").forEach((input) => {
+        const preview = document.getElementById(input.dataset.preview);
+        const sync = () => updatePreview(input.value, preview);
+        input.addEventListener("input", sync);
+        sync();
+      });
+    }
+
+    function loadConfig(config) {
+      document.getElementById("configId").value = config.id ?? "";
+      updateIdModeHint();
+      document.getElementById("name").value = config.name || "";
+      document.getElementById("subtitle").value = config.subtitle || "";
+      document.getElementById("desc").value = config.desc || "";
+      document.getElementById("style").value = config.style ?? "";
+      document.getElementById("interaction").value = config.interaction ?? "";
+      document.getElementById("interactiveTitle").value = config.interactiveTitle || "";
+      document.getElementById("inputName").value = config.inputName || "";
+      document.getElementById("lanternText").value = config.lanternText || "";
+      document.getElementById("nickName").value = config.nickName || "";
+      document.getElementById("channel").value = config.channel || "";
+      setNullableNumber("activityStatus", config.activityStatus ?? 1);
+      setNullableNumber("activityType", config.activityType);
+      document.getElementById("h5Url").value = config.h5Url || "";
+      document.getElementById("joinUrl").value = config.joinUrl || "";
+      document.getElementById("backgroundColour").value = config.backgroundColour || "";
+      document.getElementById("backgroundUrl").value = config.backgroundUrl || "";
+      document.getElementById("headingImg").value = config.headingImg || "";
+      document.getElementById("lanternIcon").value = config.lanternIcon || "";
+      setNullableNumber("dayVotes", config.dayVotes);
+      setNullableNumber("rewardVotes", config.rewardVotes);
+      setNullableNumber("resultType", config.resultType);
+      document.getElementById("resultButton").value = config.resultButton || "";
+      setNullableSku(config.sku);
+      setJsonField("resultJson", config.result);
+      setJsonField("optionsJson", config.options);
+      setJsonField("questionListJson", config.questionList);
+      document.getElementById("startTime").value = config.startTime || "";
+      document.getElementById("endTime").value = config.endTime || "";
+      document.getElementById("allowDownLoad").checked = !!config.allowDownLoad;
+      document.getElementById("allowWxFriend").checked = !!config.allowWxFriend;
+      document.getElementById("allowWxFriendCircle").checked = !!config.allowWxFriendCircle;
+      document.getElementById("wxFriendShareType").value = config.wxFriendShareType || "miniProgram";
+      document.getElementById("wxFriendCircleShareType").value = config.wxFriendCircleShareType || "url";
+      document.getElementById("shareImg").value = config.shareImg || "";
+      document.getElementById("coverUrl").value = config.coverUrl || "";
+      document.getElementById("materialStyleImageUrl").value = config.materialStyleImageUrl || "";
+      document.getElementById("publishButton").value = config.publishButton || "";
+      document.getElementById("publishIcon").value = config.publishIcon || "";
+      document.getElementById("publishImg").value = config.publishImg || "";
+      document.getElementById("contentIcon").value = config.contentIcon || "";
+      document.getElementById("likeIcon").value = config.likeIcon || "";
+
+      const miniProgram = config.miniProgram || {};
+      document.getElementById("miniProgram_originId").value = miniProgram.originId || "";
+      document.getElementById("miniProgram_path").value = miniProgram.path || "";
+      document.getElementById("miniProgram_title").value = miniProgram.title || "";
+      document.getElementById("miniProgram_desc").value = miniProgram.desc || "";
+      document.getElementById("miniProgram_webUrl").value = miniProgram.webUrl || "";
+      document.getElementById("miniProgram_picUrl").value = miniProgram.picUrl || "";
+
+      fillList("shareImgList", config.shareImgList);
+      fillList("detailImg", config.detailImg);
+      fillList("tagMaterialUrlList", config.tagMaterialUrlList ?? []);
+      fillList("lanternIconList", config.lanternIconList);
+      fillList("reminders", config.reminders, false);
+      fillList("replyList", config.replyList, false);
+      fillNumberList("publishConfig", config.publishConfig);
+      fillShareList(config.shareList);
+      bindPreviewInputs();
+    }
+
+    function readListValues(containerId) {
+      return Array.from(document.querySelectorAll(`#${containerId} input`))
+        .map((input) => input.value.trim())
+        .filter(Boolean);
+    }
+
+    function readNumberListValues(containerId) {
+      return Array.from(document.querySelectorAll(`#${containerId} input`))
+        .map((input) => Number(input.value))
+        .filter((value) => !Number.isNaN(value));
+    }
+
+    function readShareList() {
+      return Array.from(document.querySelectorAll("#shareList .share-item")).map((item) => {
+        const result = {};
+        item.querySelectorAll("[data-key]").forEach((input) => {
+          const key = input.dataset.key;
+          const raw = input.value.trim();
+          if (["composite", "shareType", "positionX", "positionY"].includes(key)) {
+            result[key] = Number(raw || 0);
+          } else if (key === "font") {
+            result[key] = raw === "" ? null : raw;
+          } else {
+            result[key] = raw;
+          }
+        });
+        return result;
+      });
+    }
+
+    function readMiniProgram() {
+      return {
+        originId: document.getElementById("miniProgram_originId").value.trim(),
+        path: document.getElementById("miniProgram_path").value.trim(),
+        title: document.getElementById("miniProgram_title").value.trim(),
+        desc: document.getElementById("miniProgram_desc").value.trim(),
+        webUrl: document.getElementById("miniProgram_webUrl").value.trim(),
+        picUrl: document.getElementById("miniProgram_picUrl").value.trim()
+      };
+    }
+
+    function updateIdModeHint() {
+      const idValue = document.getElementById("configId").value.trim();
+      const hasId = idValue !== "";
+      document.getElementById("idModeHint").textContent = hasId
+        ? `当前模式：修改（id=${idValue}）`
+        : "当前模式：新增";
+      document.getElementById("submitBtn").textContent = hasId ? "提交修改" : "提交新增";
+    }
+
+    function collectPayload() {
+      const payload = {
+        activityStatus: Number(document.getElementById("activityStatus").value || 1),
+        activityType: readNullableNumber("activityType"),
+        allowDownLoad: document.getElementById("allowDownLoad").checked,
+        allowWxFriend: document.getElementById("allowWxFriend").checked,
+        allowWxFriendCircle: document.getElementById("allowWxFriendCircle").checked,
+        backgroundColour: document.getElementById("backgroundColour").value.trim(),
+        backgroundUrl: document.getElementById("backgroundUrl").value.trim(),
+        channel: document.getElementById("channel").value.trim(),
+        contentIcon: document.getElementById("contentIcon").value.trim(),
+        coverUrl: document.getElementById("coverUrl").value.trim(),
+        dayVotes: readNullableNumber("dayVotes"),
+        desc: document.getElementById("desc").value.trim(),
+        detailImg: readListValues("detailImg"),
+        endTime: document.getElementById("endTime").value.trim(),
+        h5Url: document.getElementById("h5Url").value.trim(),
+        headingImg: document.getElementById("headingImg").value.trim(),
+        inputName: document.getElementById("inputName").value.trim(),
+        interaction: Number(document.getElementById("interaction").value || 0),
+        interactiveTitle: document.getElementById("interactiveTitle").value.trim(),
+        joinUrl: document.getElementById("joinUrl").value.trim(),
+        lanternIcon: document.getElementById("lanternIcon").value.trim(),
+        lanternIconList: readListValues("lanternIconList"),
+        lanternText: document.getElementById("lanternText").value.trim(),
+        likeIcon: document.getElementById("likeIcon").value.trim(),
+        materialStyleImageUrl: document.getElementById("materialStyleImageUrl").value.trim(),
+        miniProgram: readMiniProgram(),
+        name: document.getElementById("name").value.trim(),
+        nickName: document.getElementById("nickName").value.trim(),
+        options: readJsonField("optionsJson"),
+        publishButton: document.getElementById("publishButton").value.trim(),
+        publishConfig: readNumberListValues("publishConfig"),
+        publishIcon: document.getElementById("publishIcon").value.trim(),
+        publishImg: document.getElementById("publishImg").value.trim(),
+        questionList: readJsonField("questionListJson"),
+        reminders: readListValues("reminders"),
+        replyList: readListValues("replyList"),
+        result: readJsonField("resultJson"),
+        resultButton: document.getElementById("resultButton").value.trim(),
+        resultType: readNullableNumber("resultType"),
+        rewardVotes: readNullableNumber("rewardVotes"),
+        shareImg: document.getElementById("shareImg").value.trim(),
+        shareImgList: readListValues("shareImgList"),
+        shareList: readShareList(),
+        sku: readNullableSku(),
+        startTime: document.getElementById("startTime").value.trim(),
+        style: Number(document.getElementById("style").value || 0),
+        subtitle: document.getElementById("subtitle").value.trim(),
+        tagMaterialUrlList: readListValues("tagMaterialUrlList") ?? [],
+        wxFriendCircleShareType: document.getElementById("wxFriendCircleShareType").value,
+        wxFriendShareType: document.getElementById("wxFriendShareType").value
+      };
+
+      const idValue = document.getElementById("configId").value.trim();
+      if (idValue) {
+        payload.id = Number(idValue);
+      }
+
+      return payload;
+    }
+
+    function showResponse(success, content) {
+      const section = document.getElementById("responseSection");
+      const box = document.getElementById("responseBox");
+      section.classList.add("show");
+      box.className = `response-box show ${success ? "success" : "error"}`;
+      box.textContent = content;
+      section.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    function parseImportedJson(raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && parsed.data && typeof parsed.data === "object") {
+        if (parsed.data.data && typeof parsed.data.data === "object") {
+          return parsed.data.data;
+        }
+        if ("name" in parsed.data || "style" in parsed.data || "id" in parsed.data) {
+          return parsed.data;
+        }
+      }
+      return parsed;
+    }
+
+    function toggleJsonImportSection(show) {
+      const section = document.getElementById("jsonImportSection");
+      if (show) {
+        section.classList.add("show");
+        section.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      } else {
+        section.classList.remove("show");
+      }
+    }
+
+    function importJsonConfig() {
+      const raw = document.getElementById("jsonImportInput").value.trim();
+      if (!raw) {
+        showResponse(false, "请先粘贴 JSON 配置");
+        toggleJsonImportSection(true);
+        return;
+      }
+
+      try {
+        const config = parseImportedJson(raw);
+        if (!config || typeof config !== "object" || Array.isArray(config)) {
+          showResponse(false, "JSON 格式不正确，需要是活动配置对象");
+          return;
+        }
+
+        loadConfig(config);
+        if (config.id !== undefined && config.id !== null && config.id !== "") {
+          document.getElementById("configId").value = config.id;
+        }
+        updateIdModeHint();
+        toggleJsonImportSection(false);
+        showResponse(true, `已成功从 JSON 导入配置${config.id ? `（id=${config.id}）` : ""}`);
+      } catch (error) {
+        showResponse(false, `JSON 解析失败: ${error.message}`);
+        toggleJsonImportSection(true);
+      }
+    }
+
+    function formatJsonImportInput() {
+      const input = document.getElementById("jsonImportInput");
+      const raw = input.value.trim();
+      if (!raw) return;
+
+      try {
+        const parsed = JSON.parse(raw);
+        input.value = JSON.stringify(parsed, null, 2);
+        showResponse(true, "JSON 已格式化");
+      } catch (error) {
+        showResponse(false, `JSON 格式错误: ${error.message}`);
+      }
+    }
+
+    async function importConfig() {
+      const importId = document.getElementById("importId").value.trim();
+      if (!importId) {
+        showResponse(false, "请先输入要导入的活动 ID");
+        return;
+      }
+
+      const importBtn = document.getElementById("importBtn");
+      importBtn.classList.add("loading");
+      importBtn.textContent = "加载中...";
+
+      try {
+        const response = await fetch(`${DETAIL_API_URL}?id=${encodeURIComponent(importId)}`, {
+          method: "GET"
+        });
+        const body = await parseApiResponse(response);
+        const config = body?.data;
+
+        if (!response.ok || !config) {
+          showResponse(false, JSON.stringify({
+            ok: response.ok,
+            status: response.status,
+            data: body
+          }, null, 2));
+          return;
+        }
+
+        loadConfig(config);
+        document.getElementById("configId").value = config.id ?? importId;
+        updateIdModeHint();
+        showResponse(true, `已成功导入活动 id=${config.id ?? importId} 的配置`);
+      } catch (error) {
+        showResponse(false, `导入失败: ${error.message}`);
+      } finally {
+        importBtn.classList.remove("loading");
+        importBtn.textContent = "从接口加载";
+      }
+    }
+
+    async function submitConfig() {
+      const payload = collectPayload();
+      const submitBtn = document.getElementById("submitBtn");
+      submitBtn.classList.add("loading");
+      submitBtn.textContent = "提交中...";
+
+      try {
+        const response = await fetch(MERGE_API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const result = await parseApiResponse(response);
+        showResponse(response.ok, JSON.stringify({
+          ok: response.ok,
+          status: response.status,
+          data: result
+        }, null, 2));
+      } catch (error) {
+        showResponse(false, `提交失败: ${error.message}`);
+      } finally {
+        submitBtn.classList.remove("loading");
+        updateIdModeHint();
+      }
+    }
+
+    document.querySelectorAll("[data-add-list]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const containerId = button.dataset.addList;
+        const withPreview = !["reminders", "replyList"].includes(containerId);
+        document.getElementById(containerId).appendChild(createListItem("", withPreview));
+      });
+    });
+
+    document.querySelectorAll("[data-add-number-list]").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.getElementById(button.dataset.addNumberList).appendChild(createNumberListItem(0));
+      });
+    });
+
+    document.getElementById("addShareItemBtn").addEventListener("click", () => {
+      document.getElementById("shareList").appendChild(createShareItem());
+    });
+
+    document.getElementById("configId").addEventListener("input", updateIdModeHint);
+    document.getElementById("importBtn").addEventListener("click", importConfig);
+    document.getElementById("importJsonBtn").addEventListener("click", () => {
+      toggleJsonImportSection(true);
+      document.getElementById("jsonImportInput").focus();
+    });
+    document.getElementById("applyJsonBtn").addEventListener("click", importJsonConfig);
+    document.getElementById("cancelJsonBtn").addEventListener("click", () => toggleJsonImportSection(false));
+    document.getElementById("formatJsonBtn").addEventListener("click", formatJsonImportInput);
+    document.getElementById("importId").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") importConfig();
+    });
+    document.getElementById("submitBtn").addEventListener("click", submitConfig);
+    document.getElementById("resetBtn").addEventListener("click", () => loadConfig(DEFAULT_CONFIG));
+    document.getElementById("previewJsonBtn").addEventListener("click", () => {
+      showResponse(true, JSON.stringify(collectPayload(), null, 2));
+    });
+
+    loadConfig(DEFAULT_CONFIG);
+    updateIdModeHint();
+  </script>
+</body>
+</html>

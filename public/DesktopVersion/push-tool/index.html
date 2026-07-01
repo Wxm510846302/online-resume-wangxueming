@@ -1,0 +1,1267 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Push 发送工具</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── 暗黑模式（默认） ─────────────────────────────── */
+    :root {
+      --bg:       #0f1117;
+      --panel:    #1a1d27;
+      --panel2:   #202330;
+      --border:   #2e3347;
+      --text:     #e2e8f0;
+      --muted:    #8899aa;
+      --primary:  #2563eb;
+      --primary-d:#1d4ed8;
+      --success:  #29a26a;
+      --warning:  #b54708;
+      --danger:   #b42318;
+      --green:    #3eeaa2;
+      --yellow:   #fcce58;
+      --input-bg: #0f1117;
+      --btn-disabled-bg:   #2e3347;
+      --btn-disabled-text: #8899aa;
+      --term-bg:  #080b12;
+    }
+
+    /* ── JS 注入主题类（跟随父页面 theme toggle 或 URL ?theme= 参数） ─────── */
+    body.theme-light {
+      --bg:       #f4f6fb;
+      --panel:    #ffffff;
+      --panel2:   #eef1f8;
+      --border:   #d5daea;
+      --text:     #1e2433;
+      --muted:    #6b7a99;
+      --success:  #16a34a;
+      --warning:  #d97706;
+      --danger:   #dc2626;
+      --green:    #166534;
+      --yellow:   #92400e;
+      --input-bg: #ffffff;
+      --btn-disabled-bg:   #e2e6f0;
+      --btn-disabled-text: #9aa3b8;
+      --term-bg:  #1a1d27;
+    }
+    body.theme-dark {
+      --bg:       #0f1117;
+      --panel:    #1a1d27;
+      --panel2:   #202330;
+      --border:   #2e3347;
+      --text:     #e2e8f0;
+      --muted:    #8899aa;
+      --success:  #29a26a;
+      --warning:  #b54708;
+      --danger:   #b42318;
+      --green:    #3eeaa2;
+      --yellow:   #fcce58;
+      --input-bg: #0f1117;
+      --btn-disabled-bg:   #2e3347;
+      --btn-disabled-text: #8899aa;
+      --term-bg:  #080b12;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                   "Microsoft YaHei", "Helvetica Neue", sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── HEADER ──────────────────────────────────────────── */
+    .header {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 24px;
+      height: 64px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+    }
+    .header-badge {
+      width: 36px; height: 36px;
+      background: var(--primary);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 16px; color: #fff;
+      flex-shrink: 0;
+    }
+    .header-title { font-weight: 600; font-size: 15px; color: var(--text); }
+    .header-sub   { font-size: 12px; color: var(--muted); margin-top: 1px; }
+    .header-spacer { flex: 1; }
+    .env-badge {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 12px;
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px; font-weight: 500; color: var(--muted);
+    }
+    .env-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--success);
+    }
+
+    /* ─── BODY ────────────────────────────────────────────── */
+    .body {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 560px 1fr;
+      gap: 16px;
+      padding: 24px;
+      overflow: hidden;
+    }
+
+    /* ─── PANEL ───────────────────────────────────────────── */
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .panel-head {
+      flex-shrink: 0;
+      padding: 18px 28px 16px;
+      background: var(--panel2);
+      border-bottom: 1px solid var(--border);
+    }
+    .panel-head-row {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .panel-title  { font-weight: 600; font-size: 15px; color: var(--text); }
+    .panel-desc   { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .panel-body   { flex: 1; padding: 24px 28px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
+
+    /* ─── FORM ELEMENTS ───────────────────────────────────── */
+    .field { display: flex; flex-direction: column; gap: 8px; }
+    .field-row {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    }
+    .label {
+      font-size: 13px; font-weight: 500; color: var(--text);
+      display: flex; align-items: baseline; gap: 8px;
+    }
+    .label-hint { font-size: 11px; font-weight: 400; color: var(--muted); }
+    input[type="text"], input[type="number"], select, textarea {
+      width: 100%;
+      padding: 11px 12px;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+      font-family: inherit;
+      transition: border-color .15s;
+      outline: none;
+    }
+    textarea {
+      min-height: 150px;
+      resize: vertical;
+      line-height: 1.5;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+    input[type="text"]:focus, input[type="number"]:focus, select:focus, textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.15);
+    }
+    .hidden { display: none !important; }
+
+    /* 上传区 */
+    .upload-zone {
+      position: relative;
+      border: 1.5px dashed var(--border);
+      border-radius: 10px;
+      background: var(--input-bg);
+      padding: 20px 16px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .upload-zone:hover { border-color: var(--primary); background: rgba(37,99,235,.05); }
+    .upload-zone.has-file { border-color: var(--success); border-style: solid; background: rgba(41,162,106,.06); }
+    .upload-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer;
+      width: 100%; height: 100%;
+    }
+    .upload-icon { font-size: 22px; color: var(--muted); margin-bottom: 6px; }
+    .upload-text { font-size: 13px; font-weight: 500; color: var(--text); }
+    .upload-hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .upload-filename { font-size: 12px; color: var(--success); margin-top: 4px; font-weight: 500; }
+
+    /* 演练模式 toggle 行 */
+    .toggle-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px;
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .toggle-track {
+      position: relative;
+      width: 40px; height: 22px;
+      background: var(--border);
+      border-radius: 11px;
+      flex-shrink: 0;
+      transition: background .2s;
+    }
+    .toggle-track.on { background: var(--primary); }
+    .toggle-thumb {
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 16px; height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform .2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,.3);
+    }
+    .toggle-track.on .toggle-thumb { transform: translateX(18px); }
+    .toggle-label { font-size: 13px; font-weight: 500; color: var(--text); }
+    .toggle-sublabel { font-size: 11px; color: var(--muted); }
+
+    /* 按钮 */
+    .btn-primary {
+      width: 100%;
+      height: 44px;
+      min-height: 44px;
+      flex: 0 0 44px;
+      background: var(--primary);
+      border: none; border-radius: 8px;
+      color: #fff; font-size: 15px; font-weight: 600;
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: background .15s, transform .1s;
+      font-family: inherit;
+    }
+    .btn-primary:hover  { background: var(--primary-d); }
+    .btn-primary:active { transform: scale(.98); }
+    .btn-primary:disabled { background: var(--btn-disabled-bg); color: var(--btn-disabled-text); cursor: not-allowed; transform: none; }
+    .btn-primary.running {
+      background: var(--warning);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.75} }
+
+    .btn-row {
+      flex: 0 0 auto;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+    .btn-secondary {
+      height: 40px;
+      min-height: 40px;
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted); font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: color .15s, border-color .15s;
+      font-family: inherit;
+    }
+    .btn-secondary:hover:not(:disabled) { color: var(--text); border-color: var(--muted); }
+    .btn-secondary:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-danger {
+      height: 44px;
+      min-height: 44px;
+      background: transparent;
+      border: 1px solid var(--danger);
+      border-radius: 8px;
+      color: var(--danger);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s, color .15s, opacity .15s;
+      font-family: inherit;
+    }
+    .btn-danger:hover:not(:disabled) { background: rgba(220,38,38,.12); }
+    .btn-danger:disabled { opacity: .45; cursor: not-allowed; }
+    .action-row {
+      display: grid;
+      grid-template-columns: 1fr 120px;
+      gap: 12px;
+    }
+
+    .notice {
+      font-size: 13px; line-height: 1.6; padding: 10px 12px;
+      border-radius: 8px; display: none;
+    }
+    .notice.ok    { display: block; background: rgba(41,162,106,.1); color: var(--success); border: 1px solid rgba(41,162,106,.25); }
+    .notice.error { display: block; background: rgba(180,35,24,.1);  color: #f87171;        border: 1px solid rgba(180,35,24,.25);  }
+
+    /* ─── 右侧日志面板 ─────────────────────────────────────── */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    }
+    .stat-card {
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+    .stat-value { font-size: 22px; font-weight: 700; color: var(--text); line-height: 1; }
+    .stat-value.success { color: var(--success); }
+    .stat-value.danger  { color: #f87171; }
+    .stat-sub   { font-size: 10px; color: var(--muted); margin-top: 6px; }
+
+    /* 任务列表 */
+    .section-title {
+      font-size: 13px; font-weight: 600; color: var(--text);
+      margin-bottom: 8px;
+    }
+    .task-list { display: flex; flex-direction: column; gap: 6px; }
+    .task-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 14px;
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      transition: border-color .15s;
+    }
+    .task-row.running { border-color: rgba(181,71,8,.5); }
+    .task-row.success { border-color: rgba(41,162,106,.3); }
+    .task-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .task-dot.waiting { background: var(--muted); }
+    .task-dot.running { background: var(--warning); animation: blink 1s infinite; }
+    .task-dot.success { background: var(--success); }
+    .task-dot.error   { background: #f87171; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .task-info { flex: 1; min-width: 0; }
+    .task-id    { font-size: 11px; color: var(--muted); }
+    .task-title { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .task-time  { font-size: 12px; color: var(--muted); flex-shrink: 0; width: 140px; }
+    .task-progress { flex-shrink: 0; width: 100px; }
+    .progress-bar-bg { height: 4px; background: var(--border); border-radius: 2px; }
+    .progress-bar    { height: 4px; background: var(--primary); border-radius: 2px; transition: width .3s; }
+    .task-status {
+      flex-shrink: 0;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px; font-weight: 500;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      font-family: inherit;
+      text-align: center;
+      cursor: default;
+    }
+    .task-status.waiting { color: var(--muted); }
+    .task-status.running {
+      color: var(--danger);
+      border-color: rgba(180,35,24,.45);
+      cursor: pointer;
+    }
+    .task-status.running:hover { background: rgba(180,35,24,.1); }
+    .task-status.success { color: var(--success); border-color: rgba(41,162,106,.3); }
+    .task-status.error   { color: #f87171; border-color: rgba(248,113,113,.3); }
+
+    /* 终端 */
+    .terminal-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .terminal {
+      flex: 1; min-height: 0;
+      background: var(--term-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .term-bar {
+      flex-shrink: 0;
+      display: flex; align-items: center; gap: 8px;
+      padding: 0 14px;
+      height: 32px;
+      background: color-mix(in srgb, var(--term-bg) 80%, #fff 20%);
+      border-bottom: 1px solid var(--border);
+    }
+    .term-dots { display: flex; gap: 6px; }
+    .term-dot  { width: 12px; height: 12px; border-radius: 50%; }
+    .term-dot.red    { background: #fe5f57; }
+    .term-dot.yellow { background: #febc2e; }
+    .term-dot.green  { background: #28c840; }
+    .term-label { flex: 1; text-align: center; font-size: 11px; color: var(--muted); }
+    .term-body {
+      flex: 1; overflow-y: auto; padding: 12px 16px;
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
+      font-size: 12px; line-height: 1.8;
+    }
+    .term-body::-webkit-scrollbar { width: 6px; }
+    .term-body::-webkit-scrollbar-track { background: transparent; }
+    .term-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .log-line { white-space: pre-wrap; word-break: break-all; }
+    .log-muted   { color: var(--muted); }
+    .log-success { color: var(--green); }
+    .log-warning { color: var(--yellow); }
+    .log-error   { color: #f87171; }
+    .log-info    { color: #93c5fd; }
+    .log-empty   { color: var(--muted); padding: 20px 0; text-align: center; }
+
+    /* 滚动条 */
+    .panel-body::-webkit-scrollbar { width: 4px; }
+    .panel-body::-webkit-scrollbar-track { background: transparent; }
+    .panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- ─── HEADER ──────────────────────────────────────────── -->
+<header class="header">
+  <div class="header-badge">P</div>
+  <div>
+    <div class="header-title">Push 发送工具</div>
+    <div class="header-sub">批量推送 · 定时发送 · 演练模式</div>
+  </div>
+  <div class="header-spacer"></div>
+  <div class="env-badge">
+    <span class="env-dot"></span>
+    <span id="envLabel">正式环境</span>
+  </div>
+</header>
+
+<!-- ─── BODY ────────────────────────────────────────────── -->
+<div class="body">
+
+  <!-- ── 左列：任务配置 ───────────────────────────────────── -->
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title">任务配置</div>
+      <div class="panel-desc">填写接口地址并上传两张 Excel 后点击开始任务</div>
+    </div>
+    <div class="panel-body">
+      <form id="pushForm" style="display:contents">
+
+        <!-- Push 接口地址 -->
+        <div class="field">
+          <label class="label">Push 接口地址</label>
+          <input id="apiUrl" type="text"
+            value="https://kapi.likeduoduiyi.cn/sae-gateway/kkhc-bizcenter-schedule/push/manualOperatePush">
+        </div>
+
+        <div class="field">
+          <label class="label">发送内容来源</label>
+          <select id="sourceMode">
+            <option value="excel">Excel 配置</option>
+            <option value="json">手动 JSON</option>
+          </select>
+        </div>
+
+        <div id="excelSourceFields" style="display:contents">
+        <!-- 发送内容 Excel -->
+        <div class="field">
+          <label class="label">
+            发送内容 Excel
+            <span class="label-hint">需含 contentId / pushTaskId / TITLE / ALERT / time 列</span>
+          </label>
+          <div class="upload-zone" id="contentZone">
+            <input type="file" id="contentExcel" accept=".xlsx,.xlsm">
+            <div class="upload-icon">↑</div>
+            <div class="upload-text">点击选择或拖拽 Excel 文件</div>
+            <div class="upload-hint">支持 .xlsx / .xlsm</div>
+            <div class="upload-filename" id="contentFilename"></div>
+          </div>
+        </div>
+        </div>
+
+        <div class="field hidden" id="jsonSourceFields">
+          <label class="label">
+            发送内容 JSON
+            <span class="label-hint">支持 PARAMS / TITLE / ALERT，time 可选；用户仍从用户 ID Excel 读取</span>
+          </label>
+          <button id="formatJsonBtn" class="btn-secondary" type="button" onclick="formatPayloadJson()">格式化 JSON</button>
+          <textarea id="payloadJson" spellcheck="false" placeholder='{
+PARAMS = {
+  "path": "webview",
+  "url": "https://adl.likeduoduiyi.cn/app/goods-detail.html?env=prod%26goodsId=3334",
+  "title": "钢琴课"
+},
+TITLE = "钢琴续费特殊优惠",
+ALERT = "快点击抢购吧～"
+}'></textarea>
+        </div>
+
+        <!-- 用户 ID Excel -->
+        <div class="field">
+          <label class="label">
+            用户 ID Excel
+            <span class="label-hint">需含 unionId 列，或第一列直接放 ID</span>
+          </label>
+          <div class="upload-zone" id="usersZone">
+            <input type="file" id="usersExcel" accept=".xlsx,.xlsm">
+            <div class="upload-icon">↑</div>
+            <div class="upload-text">点击选择或拖拽 Excel 文件</div>
+            <div class="upload-hint">支持 .xlsx / .xlsm</div>
+            <div class="upload-filename" id="usersFilename"></div>
+          </div>
+        </div>
+
+        <!-- 邮箱 + 批次数 -->
+        <div class="field-row">
+          <div class="field">
+            <label class="label">结果邮箱</label>
+            <input id="emailTo" type="text" value="baixuefeng@opensplendid.cn">
+          </div>
+          <div class="field">
+            <label class="label">每批用户数</label>
+            <input id="batchSize" type="number" min="1" value="20">
+          </div>
+        </div>
+
+        <!-- 演练模式 -->
+        <div class="toggle-row" id="dryRunToggle" onclick="toggleDryRun()">
+          <div class="toggle-track" id="toggleTrack">
+            <div class="toggle-thumb"></div>
+          </div>
+          <div>
+            <div class="toggle-label">演练模式</div>
+            <div class="toggle-sublabel">只模拟，不真实调用接口</div>
+          </div>
+        </div>
+
+        <!-- 状态提示 -->
+        <div id="notice" class="notice"></div>
+
+        <!-- 开始/终止按钮 -->
+        <div class="action-row">
+          <button id="startBtn" class="btn-primary" type="submit">开始任务</button>
+          <button id="abortBtn" class="btn-danger" type="button" disabled onclick="requestAbort()">终止任务</button>
+        </div>
+
+        <!-- 次级按钮 -->
+        <div class="btn-row">
+          <button id="downloadBtn" class="btn-secondary" type="button" disabled onclick="downloadResults()">下载结果 CSV</button>
+          <button id="mailBtn"     class="btn-secondary" type="button" disabled onclick="openMailDraft()">打开邮件草稿</button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- ── 右列：运行日志 ───────────────────────────────────── -->
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-head-row">
+        <div>
+          <div class="panel-title">运行日志</div>
+          <div class="panel-desc">任务执行期间请保持页面打开，电脑休眠或断网会中断任务</div>
+        </div>
+        <div class="env-badge" id="statusBadge">
+          <span class="env-dot" id="statusDot" style="background:var(--muted)"></span>
+          <span id="statusText">待机中</span>
+        </div>
+      </div>
+    </div>
+    <div class="panel-body">
+
+      <!-- 统计卡片 -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">待发送任务</div>
+          <div class="stat-value" id="statJobs">—</div>
+          <div class="stat-sub">读取 Excel 后填充</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">用户总数</div>
+          <div class="stat-value" id="statUsers">—</div>
+          <div class="stat-sub">去重后的 unionId</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">成功批次</div>
+          <div class="stat-value success" id="statSuccess">—</div>
+          <div class="stat-sub">含执行中任务</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">失败批次</div>
+          <div class="stat-value danger" id="statFailed">—</div>
+          <div class="stat-sub">可下载详情</div>
+        </div>
+      </div>
+
+      <!-- 任务列表 -->
+      <div>
+        <div class="section-title">任务列表</div>
+        <div class="task-list" id="taskList">
+          <div style="color:var(--muted);font-size:13px;padding:12px 0;">上传发送内容 Excel 后自动填充…</div>
+        </div>
+      </div>
+
+      <!-- 终端日志 -->
+      <div class="terminal-wrap">
+        <div class="section-title">运行日志</div>
+        <div class="terminal">
+          <div class="term-bar">
+            <div class="term-dots">
+              <span class="term-dot red"></span>
+              <span class="term-dot yellow"></span>
+              <span class="term-dot green"></span>
+            </div>
+            <div class="term-label">stdout</div>
+          </div>
+          <div class="term-body" id="termBody">
+            <div class="log-empty">暂无日志输出</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ─── 常量 ─────────────────────────────────────────────── */
+const DEFAULT_PATH = "ContentDetailPage";
+const PUSH_API_PATH = "/sae-gateway/kkhc-bizcenter-schedule/push/manualOperatePush";
+const API_ENV_CONFIG = {
+  test: {
+    label: "测试",
+    pushUrl: `https://test-kkapi.likeduoduiyi.cn${PUSH_API_PATH}`,
+  },
+  prod: {
+    label: "正式",
+    pushUrl: `https://kapi.likeduoduiyi.cn${PUSH_API_PATH}`,
+  },
+};
+const contentColumns = {
+  contentid:"contentId", content_id:"contentId", "内容id":"contentId",
+  pushtaskid:"pushTaskId", push_task_id:"pushTaskId", "任务id":"pushTaskId",
+  title:"title","标题":"title",
+  alert:"alert","文案":"alert","描述":"alert",
+  time:"time","发送时间":"time","推送时间":"time"
+};
+const userColumns = new Set(["unionid","union_id","openid","open_id","学员id","用户id"]);
+
+/* ─── 状态 ──────────────────────────────────────────────── */
+let running = false;
+let dryRun  = false;
+let abortRequested = false;
+let activeAbortController = null;
+let activeTaskIndex = -1;
+const results = [];
+let totalSuccess = 0;
+let totalFailed  = 0;
+
+/* ─── DOM ───────────────────────────────────────────────── */
+const $  = (id) => document.getElementById(id);
+const startBtn    = $("startBtn");
+const downloadBtn = $("downloadBtn");
+const mailBtn     = $("mailBtn");
+const abortBtn    = $("abortBtn");
+const notice      = $("notice");
+const termBody    = $("termBody");
+const taskList    = $("taskList");
+const envLabel    = $("envLabel");
+const apiUrlInput = $("apiUrl");
+const sourceMode  = $("sourceMode");
+const excelSourceFields = $("excelSourceFields");
+const jsonSourceFields  = $("jsonSourceFields");
+
+/* ─── 演练模式 ──────────────────────────────────────────── */
+function toggleDryRun() {
+  if (running) return;
+  dryRun = !dryRun;
+  $("toggleTrack").classList.toggle("on", dryRun);
+}
+
+function syncSourceMode() {
+  const isJson = sourceMode?.value === "json";
+  excelSourceFields?.classList.toggle("hidden", isJson);
+  jsonSourceFields?.classList.toggle("hidden", !isJson);
+  const empty = taskList.querySelector(".log-empty");
+  if (empty) empty.textContent = isJson ? "填写发送内容 JSON 后自动生成任务..." : "上传发送内容 Excel 后自动填充...";
+}
+sourceMode?.addEventListener("change", syncSourceMode);
+
+/* ─── 文件选择回显 ───────────────────────────────────────── */
+$("contentExcel").addEventListener("change", (e) => {
+  const f = e.target.files[0];
+  $("contentFilename").textContent = f ? f.name : "";
+  $("contentZone").classList.toggle("has-file", !!f);
+});
+$("usersExcel").addEventListener("change", (e) => {
+  const f = e.target.files[0];
+  $("usersFilename").textContent = f ? f.name : "";
+  $("usersZone").classList.toggle("has-file", !!f);
+});
+
+/* ─── 工具 ──────────────────────────────────────────────── */
+function normalizeHeader(v) {
+  return String(v ?? "").trim().replace(/\s+/g,"").replace(/-/g,"_").toLowerCase();
+}
+function cellText(v) {
+  if (v === null || v === undefined) return "";
+  return String(v).trim();
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function excelSerialToDate(v) {
+  const utcDays  = Math.floor(v - 25569);
+  const dateInfo = new Date(utcDays * 86400 * 1000);
+  const frac     = v - Math.floor(v) + 0.0000001;
+  dateInfo.setSeconds(Math.floor(86400 * frac));
+  return dateInfo;
+}
+function parseTime(v) {
+  if (v instanceof Date) return v;
+  if (typeof v === "number") return excelSerialToDate(v);
+  const raw  = cellText(v);
+  if (!raw) throw new Error("time 不能为空");
+  const norm = raw.replace(/\//g, "-").replace("T"," ");
+  const m    = norm.match(/^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
+  if (!m) throw new Error(`无法识别 time：${raw}`);
+  const [,y,mo,d,h,min,s] = m;
+  return new Date(+y, +mo-1, +d, +h, +min, +(s||0));
+}
+function readWorkbook(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => {
+      try { res(XLSX.read(r.result, { type:"array", cellDates:true })); }
+      catch(e) { rej(e); }
+    };
+    r.onerror = () => rej(r.error);
+    r.readAsArrayBuffer(file);
+  });
+}
+function workbookRows(wb) {
+  const rows = [];
+  for (const name of wb.SheetNames) {
+    const data = XLSX.utils.sheet_to_json(wb.Sheets[name], { header:1, raw:true, defval:"" });
+    for (const row of data) {
+      if (row.some(c => cellText(c) !== "")) rows.push(row);
+    }
+  }
+  return rows;
+}
+function readJobs(rows) {
+  if (!rows.length) throw new Error("发送内容 Excel 是空的");
+  const header = rows[0];
+  const mapped = {};
+  header.forEach((c,i) => { const t = contentColumns[normalizeHeader(c)]; if(t) mapped[t]=i; });
+  const req = ["contentId","pushTaskId","title","alert","time"];
+  const miss = req.filter(n => mapped[n]===undefined);
+  if (miss.length) throw new Error("缺少列：" + miss.join(", "));
+  const jobs = [];
+  rows.slice(1).forEach((row, idx) => {
+    if (req.every(n => cellText(row[mapped[n]])==="")) return;
+    const job = {
+      rowNumber: idx+2,
+      contentId:  cellText(row[mapped.contentId]),
+      pushTaskId: cellText(row[mapped.pushTaskId]),
+      title:      cellText(row[mapped.title]),
+      alert:      cellText(row[mapped.alert]),
+      time:       parseTime(row[mapped.time])
+    };
+    const empty = ["contentId","pushTaskId","title","alert"].filter(n=>!job[n]);
+    if (empty.length) throw new Error(`第${job.rowNumber}行缺少：${empty.join(", ")}`);
+    jobs.push(job);
+  });
+  if (!jobs.length) throw new Error("发送内容 Excel 没有有效任务行");
+  return jobs.sort((a,b) => a.time - b.time);
+}
+function readUserIds(rows) {
+  if (!rows.length) throw new Error("用户 Excel 是空的");
+  const header = rows[0].map(normalizeHeader);
+  let col = header.findIndex(n => userColumns.has(n));
+  let start = 1;
+  if (col < 0) { col = 0; start = 0; }
+  const seen = new Set(); const ids = [];
+  rows.slice(start).forEach(row => {
+    const v = cellText(row[col]);
+    if (!v || userColumns.has(v.toLowerCase())) return;
+    if (!seen.has(v)) { seen.add(v); ids.push(v); }
+  });
+  if (!ids.length) throw new Error("用户 Excel 未读取到有效 ID");
+  return ids;
+}
+function jsonValue(row, keys) {
+  if (!row || typeof row !== "object") return "";
+  for (const key of keys) {
+    if (row[key] !== undefined) return row[key];
+  }
+  const normalized = {};
+  Object.keys(row).forEach((key) => {
+    normalized[normalizeHeader(key)] = row[key];
+  });
+  for (const key of keys) {
+    const value = normalized[normalizeHeader(key)];
+    if (value !== undefined) return value;
+  }
+  return "";
+}
+function parseLooseJsonContent(text) {
+  try {
+    return JSON.parse(text);
+  } catch (_) {
+    const normalized = text
+      .replace(/([{,]\s*)([A-Za-z_][\w]*)\s*=/g, '$1"$2":')
+      .replace(/([{,]\s*)([A-Za-z_][\w]*)\s*:/g, '$1"$2":')
+      .replace(/,\s*([}\]])/g, "$1");
+    return JSON.parse(normalized);
+  }
+}
+function formatPayloadJson() {
+  const input = $("payloadJson");
+  const text = cellText(input?.value);
+  if (!text) {
+    setNotice("请先填写发送内容 JSON", "error");
+    return;
+  }
+  try {
+    const parsed = parseLooseJsonContent(text);
+    input.value = JSON.stringify(parsed, null, 2);
+    setNotice("JSON 已格式化。", "ok");
+  } catch (error) {
+    setNotice(`JSON 格式化失败：${error.message}`, "error");
+  }
+}
+function buildJsonParams(row) {
+  const explicitParams = jsonValue(row, ["params", "PARAMS"]);
+  if (explicitParams && typeof explicitParams === "object" && !Array.isArray(explicitParams)) {
+    return explicitParams;
+  }
+  const reserved = new Set([
+    "params",
+    "contentid", "content_id", "内容id",
+    "pushtaskid", "push_task_id", "任务id",
+    "title", "标题",
+    "alert", "文案", "描述",
+    "time", "发送时间", "推送时间"
+  ]);
+  const params = {};
+  Object.entries(row).forEach(([key, value]) => {
+    if (!reserved.has(normalizeHeader(key))) params[key] = value;
+  });
+  if (!Object.keys(params).length) params.path = DEFAULT_PATH;
+  return params;
+}
+function jsonRowToJob(item, idx) {
+  if (!item || typeof item !== "object" || Array.isArray(item)) {
+    throw new Error(`第 ${idx + 1} 条 JSON 任务必须是对象`);
+  }
+  const rawTime = jsonValue(item, ["time", "发送时间", "推送时间"]);
+  const title = cellText(jsonValue(item, ["title", "TITLE", "标题"]));
+  const alert = cellText(jsonValue(item, ["alert", "ALERT", "文案", "描述"])) || title;
+  const params = buildJsonParams(item);
+  const job = {
+    rowNumber: idx + 1,
+    contentId: cellText(jsonValue(item, ["contentId", "content_id", "内容id"])),
+    pushTaskId: cellText(jsonValue(item, ["pushTaskId", "push_task_id", "任务id"])),
+    title,
+    alert,
+    time: rawTime ? parseTime(rawTime) : new Date(),
+    params,
+  };
+  const empty = ["title","alert"].filter(n=>!job[n]);
+  if (empty.length) throw new Error(`JSON 第${job.rowNumber}条缺少：${empty.join(", ")}`);
+  return job;
+}
+function readJsonTasks(raw) {
+  const text = cellText(raw);
+  if (!text) throw new Error("请填写发送内容 JSON");
+  let parsed;
+  try {
+    parsed = parseLooseJsonContent(text);
+  } catch (error) {
+    throw new Error(`JSON 格式错误：${error.message}`);
+  }
+  const list = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(parsed?.tasks)
+      ? parsed.tasks
+      : Array.isArray(parsed?.items)
+        ? parsed.items
+        : [parsed];
+  if (!list.length) throw new Error("JSON 未读取到有效任务");
+  return list.map(jsonRowToJob).sort((a, b) => a.time - b.time);
+}
+function chunk(arr, size) {
+  const out = [];
+  for (let i=0; i<arr.length; i+=size) out.push(arr.slice(i,i+size));
+  return out;
+}
+function isSuccess(status, text) {
+  if (status<200||status>=300) return false;
+  try { const p=JSON.parse(text); return [200,"200","OK",undefined,null].includes(p.status); }
+  catch(_){ return true; }
+}
+
+/* ─── 日志输出 ───────────────────────────────────────────── */
+function log(msg, type="muted") {
+  const empty = termBody.querySelector(".log-empty");
+  if (empty) empty.remove();
+  const stamp = new Date().toLocaleString("zh-CN",{hour12:false});
+  const line  = document.createElement("div");
+  line.className = `log-line log-${type}`;
+  line.textContent = `[${stamp}] ${msg}`;
+  termBody.appendChild(line);
+  termBody.scrollTop = termBody.scrollHeight;
+}
+
+/* ─── 状态更新 ───────────────────────────────────────────── */
+function setStatus(txt, color) {
+  $("statusText").textContent = txt;
+  $("statusDot").style.background = color;
+}
+function setNotice(msg, type) {
+  notice.textContent = msg || "";
+  notice.className = "notice" + (type ? " "+type : "");
+}
+function updateStats(jobs, userCount) {
+  $("statJobs").textContent    = jobs;
+  $("statUsers").textContent   = userCount;
+  $("statSuccess").textContent = totalSuccess || "0";
+  $("statFailed").textContent  = totalFailed  || "0";
+}
+
+/* ─── 任务列表渲染 ─────────────────────────────────────────── */
+let jobElements = {};
+function renderTaskList(jobs) {
+  taskList.innerHTML = "";
+  jobElements = {};
+  jobs.forEach((job, i) => {
+    const row = document.createElement("div");
+    row.className = "task-row";
+    row.id = `task-row-${i}`;
+    row.innerHTML = `
+      <span class="task-dot waiting" id="task-dot-${i}"></span>
+      <div class="task-info">
+        <div class="task-id">#${job.contentId} · task ${job.pushTaskId}</div>
+        <div class="task-title">${escHtml(job.title)}</div>
+      </div>
+      <div class="task-time">${job.time.toLocaleString("zh-CN",{hour12:false})}</div>
+      <div class="task-progress">
+        <div class="progress-bar-bg"><div class="progress-bar" id="task-bar-${i}" style="width:0%"></div></div>
+      </div>
+      <button class="task-status waiting" id="task-status-${i}" type="button" disabled>等待中</button>
+    `;
+    taskList.appendChild(row);
+    jobElements[i] = row;
+  });
+}
+function setTaskState(i, state, progress, label) {
+  const row    = $(`task-row-${i}`);
+  const dot    = $(`task-dot-${i}`);
+  const bar    = $(`task-bar-${i}`);
+  const status = $(`task-status-${i}`);
+  if (!row) return;
+  row.className    = `task-row ${state}`;
+  dot.className    = `task-dot ${state}`;
+  status.className = `task-status ${state}`;
+  status.textContent = state === "running" ? "终止任务" : label;
+  status.disabled = state !== "running";
+  status.onclick = state === "running" ? requestAbort : null;
+  if (bar) bar.style.width = `${progress}%`;
+}
+function escHtml(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+function normalizeEnv(env) {
+  return API_ENV_CONFIG[env] ? env : "prod";
+}
+
+function applyEnv(env) {
+  const nextEnv = normalizeEnv(env);
+  const config = API_ENV_CONFIG[nextEnv];
+  if (envLabel) envLabel.textContent = `${config.label}环境`;
+  if (!running && apiUrlInput) apiUrlInput.value = config.pushUrl;
+}
+
+function describeNetworkError(error) {
+  if (String(error?.message || "").includes("Failed to fetch")) {
+    return "Failed to fetch（请确认接口地址使用 /sae-gateway 网关路径；裸域 /kkhc-bizcenter-schedule 路径会被浏览器 CORS 拦截）";
+  }
+  return error?.message || "网络请求失败";
+}
+
+function makeAbortError() {
+  const error = new Error("任务已手动终止");
+  error.name = "AbortError";
+  return error;
+}
+function isAbortError(error) {
+  return error?.name === "AbortError" || error?.message === "任务已手动终止";
+}
+function ensureNotAborted() {
+  if (abortRequested) throw makeAbortError();
+}
+function requestAbort() {
+  if (!running || abortRequested) return;
+  abortRequested = true;
+  abortBtn.disabled = true;
+  abortBtn.textContent = "终止中...";
+  setStatus("终止中", "var(--danger)");
+  setNotice("正在终止任务，当前请求会尽快取消，后续任务不会继续发送。", "warning");
+  log("收到手动终止请求，正在停止任务...", "warning");
+  activeAbortController?.abort();
+}
+async function interruptibleSleep(ms) {
+  const endAt = Date.now() + ms;
+  while (Date.now() < endAt) {
+    ensureNotAborted();
+    await sleep(Math.min(250, endAt - Date.now()));
+  }
+  ensureNotAborted();
+}
+
+/* ─── 发送核心 ───────────────────────────────────────────── */
+async function waitUntil(date, jobIdx, total) {
+  while (true) {
+    ensureNotAborted();
+    const secs = Math.ceil((date.getTime() - Date.now()) / 1000);
+    if (secs <= 0) return;
+    const hms = date.toLocaleString("zh-CN",{hour12:false});
+    log(`任务 ${jobIdx+1}/${total} 等待发送时间 ${hms}，剩余约 ${secs} 秒`);
+    await interruptibleSleep(Math.min(secs, 60) * 1000);
+  }
+}
+
+async function sendJob(job, unionIds, opts, jobIdx, totalJobs) {
+  const batches = chunk(unionIds, opts.batchSize);
+  let ok = 0, fail = 0;
+  const failDetails = [];
+
+  setTaskState(jobIdx, "running", 0, "发送中");
+  log(`开始发送：contentId=${job.contentId}, 用户数=${unionIds.length}, 批次数=${batches.length}`, "success");
+
+  try {
+    for (let i=0; i<batches.length; i++) {
+      ensureNotAborted();
+      const batch = batches[i];
+      const pct   = Math.round((i+1)/batches.length*100);
+
+      if (opts.dryRun) {
+        ok++;
+        totalSuccess++;
+        log(`批次 ${i+1}/${batches.length} 演练成功，用户数 ${batch.length}`, "info");
+        setTaskState(jobIdx, "running", pct, `${pct}%`);
+        $("statSuccess").textContent = totalSuccess;
+        await interruptibleSleep(50);
+        continue;
+      }
+
+    const payload = {
+      unionIdList: batch,
+      params: job.params || { path: DEFAULT_PATH, contentId: job.contentId, pushTaskId: job.pushTaskId },
+      title: job.title, alert: job.alert
+    };
+      try {
+        activeAbortController = new AbortController();
+        const res  = await fetch(opts.apiUrl, {
+          method:"POST",
+          headers:{"Content-Type":"application/json;charset=utf-8"},
+          body: JSON.stringify(payload),
+          signal: activeAbortController.signal
+        });
+        activeAbortController = null;
+        const text = await res.text();
+        if (isSuccess(res.status, text)) {
+          ok++; totalSuccess++;
+          log(`批次 ${i+1}/${batches.length} 成功，用户数 ${batch.length}`, "success");
+        } else {
+          fail++; totalFailed++;
+          failDetails.push(`批次 ${i+1} HTTP ${res.status}: ${text.slice(0,200)}`);
+          log(`批次 ${i+1}/${batches.length} 失败，HTTP ${res.status}`, "warning");
+        }
+      } catch(e) {
+        activeAbortController = null;
+        if (isAbortError(e)) throw makeAbortError();
+        fail++; totalFailed++;
+        const message = describeNetworkError(e);
+        failDetails.push(`批次 ${i+1}: ${message}`);
+        log(`批次 ${i+1}/${batches.length} 网络错误：${message}`, "error");
+      }
+
+      setTaskState(jobIdx, "running", pct, `${pct}%`);
+      $("statSuccess").textContent = totalSuccess;
+      $("statFailed").textContent  = totalFailed;
+      await interruptibleSleep(10);
+    }
+  } catch (error) {
+    if (!isAbortError(error)) throw error;
+    failDetails.push("手动终止");
+    setTaskState(jobIdx, "error", 100, "已终止");
+    results.push({
+      time: new Date().toLocaleString("zh-CN",{hour12:false}),
+      contentId: job.contentId, pushTaskId: job.pushTaskId,
+      title: job.title, alert: job.alert,
+      totalUsers: unionIds.length, totalBatches: batches.length,
+      successBatches: ok, failedBatches: fail,
+      failedDetails: failDetails.join(" | ")
+    });
+    throw makeAbortError();
+  }
+
+  const finalState = fail === 0 ? "success" : "error";
+  setTaskState(jobIdx, finalState, 100, fail === 0 ? "已完成" : `${fail} 批失败`);
+  log(`任务完成：成功 ${ok} 批，失败 ${fail} 批`, fail === 0 ? "success" : "warning");
+
+  results.push({
+    time: new Date().toLocaleString("zh-CN",{hour12:false}),
+    contentId: job.contentId, pushTaskId: job.pushTaskId,
+    title: job.title, alert: job.alert,
+    totalUsers: unionIds.length, totalBatches: batches.length,
+    successBatches: ok, failedBatches: fail,
+    failedDetails: failDetails.join(" | ")
+  });
+}
+
+/* ─── 表单提交 ───────────────────────────────────────────── */
+$("pushForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (running) return;
+  const useJson = sourceMode?.value === "json";
+  if (!window.XLSX) {
+    setNotice("Excel 解析库加载失败，请确认页面能访问 cdn.jsdelivr.net", "error");
+    return;
+  }
+
+  running = true;
+  abortRequested = false;
+  activeTaskIndex = -1;
+  activeAbortController = null;
+  totalSuccess = 0; totalFailed = 0;
+  startBtn.disabled = true;
+  startBtn.classList.add("running");
+  startBtn.textContent = "任务运行中…";
+  abortBtn.disabled = false;
+  abortBtn.textContent = "终止任务";
+  sourceMode.disabled = true;
+  downloadBtn.disabled = true; mailBtn.disabled = true;
+  results.length = 0;
+  termBody.innerHTML = "";
+  setNotice("", "");
+  setStatus("运行中", "var(--warning)");
+
+  try {
+    const apiUrl      = $("apiUrl").value.trim();
+    const contentFile = $("contentExcel").files[0];
+    const usersFile   = $("usersExcel").files[0];
+    const batchSize   = Number($("batchSize").value || 20);
+
+    if (!apiUrl)       throw new Error("请填写 Push 接口地址");
+    if (!usersFile)    throw new Error("请选择用户 ID Excel");
+    if (!Number.isFinite(batchSize)||batchSize<1) throw new Error("每批用户数必须大于 0");
+
+    let jobs;
+    if (useJson) {
+      log("开始读取发送内容 JSON...", "info");
+      jobs = readJsonTasks($("payloadJson").value);
+      log(`读取完成：${jobs.length} 条 JSON 内容任务`, "success");
+    } else {
+      if (!contentFile)  throw new Error("请选择发送内容 Excel");
+      log("开始读取发送内容 Excel...", "info");
+      const cwb = await readWorkbook(contentFile);
+      jobs = readJobs(workbookRows(cwb));
+      log(`读取完成：${jobs.length} 条 Excel 内容任务`, "success");
+    }
+    log("开始读取用户 ID Excel...", "info");
+    const uwb = await readWorkbook(usersFile);
+    const userIds = readUserIds(workbookRows(uwb));
+    log(`用户读取完成：${userIds.length} 个用户`, "success");
+    updateStats(jobs.length, userIds.length);
+
+    renderTaskList(jobs);
+
+    for (let i=0; i<jobs.length; i++) {
+      ensureNotAborted();
+      activeTaskIndex = i;
+      const job = jobs[i];
+      log(`任务 ${i+1}/${jobs.length} 准备：contentId=${job.contentId}，发送时间=${job.time.toLocaleString("zh-CN",{hour12:false})}`, "info");
+      await waitUntil(job.time, i, jobs.length);
+      await sendJob(job, userIds, { apiUrl, batchSize, dryRun }, i, jobs.length);
+    }
+    activeTaskIndex = -1;
+
+    setStatus("完成", "var(--success)");
+    setNotice(dryRun ? "演练完成，无实际发送。" : "全部任务已完成，可下载结果或打开邮件草稿。", "ok");
+    downloadBtn.disabled = false; mailBtn.disabled = false;
+
+  } catch(err) {
+    if (isAbortError(err)) {
+      if (activeTaskIndex >= 0) setTaskState(activeTaskIndex, "error", 100, "已终止");
+      log("任务已手动终止，后续任务未继续发送。", "warning");
+      setNotice("任务已终止。已完成的批次会保留在结果中，可下载查看。", "warning");
+      setStatus("已终止", "var(--danger)");
+      downloadBtn.disabled = results.length === 0;
+      mailBtn.disabled = results.length === 0;
+    } else {
+      log(`执行失败：${err.message}`, "error");
+      setNotice(err.message, "error");
+      setStatus("出错", "var(--danger)");
+    }
+  } finally {
+    running = false;
+    abortRequested = false;
+    activeTaskIndex = -1;
+    activeAbortController = null;
+    startBtn.disabled = false;
+    startBtn.classList.remove("running");
+    startBtn.textContent = "开始任务";
+    abortBtn.disabled = true;
+    abortBtn.textContent = "终止任务";
+    sourceMode.disabled = false;
+  }
+});
+
+/* ─── 下载 CSV ────────────────────────────────────────────── */
+function downloadResults() {
+  const header = ["完成时间","contentId","pushTaskId","TITLE","ALERT","用户数","批次数","成功批次","失败批次","失败明细"];
+  const rows = results.map(r => [r.time,r.contentId,r.pushTaskId,r.title,r.alert,
+    r.totalUsers,r.totalBatches,r.successBatches,r.failedBatches,r.failedDetails]);
+  const csv = [header,...rows].map(r=>r.map(c=>`"${String(c??"").replace(/"/g,'""')}"`).join(",")).join("\n");
+  const url = URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));
+  const a = Object.assign(document.createElement("a"),{href:url,download:`push_result_${Date.now()}.csv`});
+  a.click(); URL.revokeObjectURL(url);
+}
+
+/* ─── 邮件草稿 ────────────────────────────────────────────── */
+/* ─── 主题同步 ──────────────────────────────────────────── */
+function applyTheme(theme) {
+  document.body.classList.toggle("theme-light", theme === "light");
+  document.body.classList.toggle("theme-dark",  theme !== "light");
+}
+
+// 1. 从 URL ?theme= 参数读取初始主题（由父页面 syncPushToolFrame 注入）
+const urlParams = new URLSearchParams(location.search);
+const urlTheme = urlParams.get("theme") || "dark";
+const urlEnv = normalizeEnv(urlParams.get("env") || "prod");
+applyTheme(urlTheme);
+applyEnv(urlEnv);
+syncSourceMode();
+
+// 2. 监听父页面 postMessage，实时跟随切换
+window.addEventListener("message", (e) => {
+  if (e.data?.type === "kkhc-theme-change") applyTheme(e.data.theme);
+  if (e.data?.type === "kkhc-push-tool-config") {
+    applyTheme(e.data.theme);
+    applyEnv(e.data.env);
+  }
+});
+
+function openMailDraft() {
+  const to   = $("emailTo").value.trim();
+  const body = results.map(r=>[
+    "Push 发送结果",
+    `完成时间: ${r.time}`, `contentId: ${r.contentId}`, `pushTaskId: ${r.pushTaskId}`,
+    `TITLE: ${r.title}`, `ALERT: ${r.alert}`,
+    `用户数: ${r.totalUsers}`, `批次数: ${r.totalBatches}`,
+    `成功批次: ${r.successBatches}`, `失败批次: ${r.failedBatches}`,
+    r.failedDetails?`失败明细: ${r.failedDetails}`:""
+  ].filter(Boolean).join("\n")).join("\n\n---\n\n");
+  window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent("Push发送结果")}&body=${encodeURIComponent(body)}`;
+}
+</script>
+</body>
+</html>

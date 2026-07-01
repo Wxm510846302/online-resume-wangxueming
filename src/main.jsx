@@ -17,12 +17,11 @@ const cozeSpeechApiPaths = parseProxyPaths(
   import.meta.env.VITE_COZE_SPEECH_PROXY_PATHS,
   import.meta.env.VITE_COZE_SPEECH_PROXY_PATH || cozeApiPaths,
 );
+const resumeLoginApiPath = import.meta.env.VITE_RESUME_LOGIN_PROXY_PATH || "/api/resume-login";
 const resumeFilmSrc = `${basePath}/resume-film/wangxueming-resume-intro.mp4`;
 const resumeFilmPoster = `${basePath}/resume-film/wangxueming-resume-intro-poster.png`;
 const AUTH_STORAGE_KEY = "resume-admin-authenticated";
-const AUTH_HASH_SALT = "online-resume-wangxueming";
-const AUTH_USERNAME_HASH = "dd3f8c1cf0a2145ada6b26e7209ccbfa947da0ceb3568ee8b54cb0799f5993ef";
-const AUTH_PASSWORD_HASH = "6f82837798bcc3d7fb33f65cf64f3af02ba3c0c3a24db414f037901204591a85";
+const desktopVersionSrc = `${basePath}/DesktopVersion/index.html`;
 
 function parseProxyPaths(value, fallback) {
   const values = [];
@@ -213,7 +212,9 @@ function App() {
   const project = slug ? projects.find((item) => item.slug === slug) : null;
   let page;
 
-  if (slug && project) {
+  if (route === "/desktop") {
+    page = <DesktopVersionPage auth={auth} />;
+  } else if (slug && project) {
     page = <ProjectDetail project={project} auth={auth} />;
   } else if (slug && !project) {
     page = <NotFound />;
@@ -235,34 +236,39 @@ function getRoute() {
   if (window.location.hash.startsWith("#/project/")) {
     return window.location.hash.slice(1);
   }
+  if (window.location.hash === "#/desktop") {
+    return "/desktop";
+  }
 
   const currentPath = window.location.pathname.startsWith(basePath)
     ? window.location.pathname.slice(basePath.length) || "/"
     : window.location.pathname;
 
+  if (currentPath === "/desktop" || currentPath === "/desktop/") return "/desktop";
   return currentPath.startsWith("/project/") ? currentPath : "/";
 }
 
 function useResumeAuth() {
   const [isAuthenticated, setIsAuthenticated] = React.useState(() => {
-    try {
-      return window.localStorage?.getItem(AUTH_STORAGE_KEY) === "true";
-    } catch {
-      return false;
-    }
+    return readStoredAuth();
   });
 
   const login = React.useCallback(async (username, password) => {
-    const [usernameHash, passwordHash] = await Promise.all([
-      hashCredential("username", username.trim()),
-      hashCredential("password", password),
-    ]);
-    if (usernameHash !== AUTH_USERNAME_HASH || passwordHash !== AUTH_PASSWORD_HASH) {
+    const response = await fetch(resumeLoginApiPath, {
+      method: "POST",
+      headers: { "Content-Type": "application/json;charset=utf-8" },
+      body: JSON.stringify({ username: username.trim(), password }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || !body.ok) {
       return false;
     }
     setIsAuthenticated(true);
     try {
-      window.localStorage?.setItem(AUTH_STORAGE_KEY, "true");
+      window.localStorage?.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+        authenticated: true,
+        expiresAt: Number(body.expiresAt) || Date.now() + 12 * 60 * 60 * 1000,
+      }));
     } catch {
       // Login still works for the current session if storage is unavailable.
     }
@@ -281,12 +287,23 @@ function useResumeAuth() {
   return { isAuthenticated, login, logout };
 }
 
-async function hashCredential(kind, value) {
-  const bytes = new TextEncoder().encode(`${AUTH_HASH_SALT}:${kind}:${value}`);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
+function readStoredAuth() {
+  try {
+    const raw = window.localStorage?.getItem(AUTH_STORAGE_KEY);
+    if (!raw) return false;
+    if (raw === "true") {
+      window.localStorage?.removeItem(AUTH_STORAGE_KEY);
+      return false;
+    }
+    const data = JSON.parse(raw);
+    if (!data?.authenticated || Number(data.expiresAt) <= Date.now()) {
+      window.localStorage?.removeItem(AUTH_STORAGE_KEY);
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function LoginDialog({ auth, onClose }) {
@@ -403,6 +420,7 @@ function Header({ auth }) {
     ["首页", "#top"],
     ["技能", "#skills"],
     ["项目", "#projects"],
+    ...(auth.isAuthenticated ? [["后台", `${basePath}/desktop`]] : []),
     ["小作品", "#ai-lab"],
     ["经历", "#timeline"],
     ["问答", "#assistant"],
@@ -1829,6 +1847,44 @@ function AIMiniProjectsSection() {
         </div>
       </div>
     </section>
+  );
+}
+
+function DesktopVersionPage({ auth }) {
+  return (
+    <>
+      <header className="detail-header desktop-version-header">
+        <a href={`${basePath}/`} className="back-link"><ArrowLeft size={18} /> 返回首页</a>
+        <button
+          className="secondary-action"
+          type="button"
+          onClick={auth.openLogin}
+        >
+          {auth.isAuthenticated ? <ShieldCheck size={18} /> : <LockKeyhole size={18} />}
+          {auth.isAuthenticated ? "管理登录状态" : "登录后查看"}
+        </button>
+      </header>
+      <main className="desktop-version-main">
+        {auth.isAuthenticated ? (
+          <section className="desktop-version-shell" aria-label="DesktopVersion 后台">
+            <iframe
+              className="desktop-version-frame"
+              title="DesktopVersion"
+              src={desktopVersionSrc}
+            />
+          </section>
+        ) : (
+          <section className="desktop-version-locked">
+            <span><LockKeyhole size={28} /></span>
+            <h1>DesktopVersion</h1>
+            <p>该后台入口需要管理员登录后查看。</p>
+            <button className="primary-action" type="button" onClick={auth.openLogin}>
+              登录查看 <ArrowUpRight size={18} />
+            </button>
+          </section>
+        )}
+      </main>
+    </>
   );
 }
 

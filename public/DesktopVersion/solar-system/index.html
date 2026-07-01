@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>太阳系 3D 运行模拟</title>
+    <link rel="icon" type="image/png" href="../favicon.png?v=202604101520" sizes="48x48" />
+    <link rel="stylesheet" href="./solar-system.css?v=202606291930" />
+  </head>
+  <body>
+    <main class="solar-app" aria-label="太阳系 3D 运行模拟">
+      <canvas id="solarCanvas" class="solar-canvas"></canvas>
+
+      <header class="topbar" aria-label="模拟器状态与快捷操作">
+        <a class="brand" href="../index.html" aria-label="返回管理后台">
+          <span class="brand-mark">S</span>
+          <span>Solar System <b>Simulator</b></span>
+        </a>
+        <div class="top-actions">
+          <button id="pauseBtn" class="control-btn" type="button" aria-pressed="false">
+            <span id="pauseIcon" aria-hidden="true">||</span>
+            <span id="pauseText">暂停</span>
+          </button>
+          <button id="langBtn" class="control-btn" type="button" aria-label="Switch language">EN</button>
+          <label class="select-control">
+            <span>速度</span>
+            <select id="speedSelect" aria-label="轨道运行速度">
+              <option value="0.25">0.25x</option>
+              <option value="0.5">0.5x</option>
+              <option value="1" selected>1.00x</option>
+              <option value="2">2.00x</option>
+              <option value="4">4.00x</option>
+            </select>
+          </label>
+          <button id="resetBtn" class="control-btn" type="button">重置视角</button>
+        </div>
+      </header>
+
+      <aside class="focus-panel" aria-label="行星聚焦">
+        <h1>太阳系运行</h1>
+        <p>拖拽旋转视角，滚轮或滑块拉近拉远。</p>
+        <nav id="planetNav" class="planet-nav" aria-label="选择天体聚焦"></nav>
+      </aside>
+
+      <section class="scale-panel" aria-label="尺度说明">
+        <h2>尺度说明</h2>
+        <p id="scaleNote">轨道距离与行星半径为教学可视化近似，保留行星顺序与运行差异。</p>
+        <dl>
+          <div><dt>1 AU</dt><dd>149,597,870 km</dd></div>
+          <div><dt>视图</dt><dd>斜俯瞰黄道面</dd></div>
+          <div><dt>行星</dt><dd>八大行星</dd></div>
+        </dl>
+      </section>
+
+      <section id="detailPanel" class="detail-panel" aria-label="天体特征">
+        <span class="detail-kicker">近景特征</span>
+        <h2 id="detailTitle">Earth</h2>
+        <p id="detailBody">蓝色海洋、白色云带与绿色陆地是地球近景的主要视觉特征。</p>
+        <p id="detailIntro" class="detail-intro"></p>
+        <dl id="detailStats" class="detail-stats"></dl>
+        <div class="sound-controls">
+          <button id="soundBtn" class="sound-btn" type="button" aria-pressed="false">
+            <span id="soundIcon" aria-hidden="true">♪</span>
+            <span id="soundText">朗读介绍</span>
+          </button>
+          <select id="voiceSelect" class="sound-voice" aria-label="朗读语音"></select>
+          <a id="soundSourceLink" class="sound-source" href="https://science.nasa.gov/solar-system/planets/" target="_blank" rel="noreferrer"></a>
+        </div>
+        <p id="soundMeta" class="sound-meta"></p>
+      </section>
+
+      <section class="bottom-controls" aria-label="视角与速度控制">
+        <label class="range-control">
+          <span>速度</span>
+          <input id="speedRange" type="range" min="0" max="4" step="0.05" value="1" aria-label="速度微调" />
+          <output id="speedOutput">1.00x</output>
+        </label>
+        <label class="range-control">
+          <span>缩放</span>
+          <input id="zoomRange" type="range" min="7" max="420" step="1" value="110" aria-label="视角缩放" />
+          <output id="zoomOutput">92</output>
+        </label>
+      </section>
+
+      <div id="labelsLayer" class="labels-layer" aria-hidden="true"></div>
+      <p class="hint">Drag to rotate · Scroll to zoom · Click a planet to focus</p>
+      <div id="loadingState" class="loading-state" role="status" aria-live="polite">
+        <!-- 开场动效：以“混沌初开”为意象的星象徽记，纯 SVG + CSS 实现，无需外部图片资源 -->
+        <div class="loading-stage">
+          <svg class="loading-sigil" viewBox="0 0 200 200" aria-hidden="true" focusable="false">
+            <defs>
+              <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#fff4d6" />
+                <stop offset="38%" stop-color="#ffb54a" />
+                <stop offset="100%" stop-color="rgba(255, 140, 40, 0)" />
+              </radialGradient>
+              <linearGradient id="ringStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#18c8ff" />
+                <stop offset="100%" stop-color="#9b8cff" />
+              </linearGradient>
+            </defs>
+            <!-- 远景星点 -->
+            <g class="sigil-stars">
+              <circle cx="32" cy="40" r="1.4" />
+              <circle cx="168" cy="52" r="1.1" />
+              <circle cx="150" cy="160" r="1.5" />
+              <circle cx="40" cy="150" r="1.2" />
+              <circle cx="100" cy="22" r="1.1" />
+              <circle cx="22" cy="100" r="1" />
+              <circle cx="178" cy="110" r="1.3" />
+            </g>
+            <!-- 外层旋转轨道环 -->
+            <circle class="sigil-ring sigil-ring-outer" cx="100" cy="100" r="78" />
+            <circle class="sigil-ring sigil-ring-mid" cx="100" cy="100" r="56" />
+            <!-- 绕行行星：透明定位圆让分组包围盒以 (100,100) 为中心，行星才能绕中心公转 -->
+            <g class="sigil-orbit">
+              <circle cx="100" cy="100" r="78" fill="none" stroke="none" />
+              <circle class="sigil-planet" cx="100" cy="22" r="4.5" />
+            </g>
+            <!-- 中心太阳 -->
+            <circle class="sigil-core-glow" cx="100" cy="100" r="46" fill="url(#coreGlow)" />
+            <circle class="sigil-core" cx="100" cy="100" r="18" />
+          </svg>
+          <!-- 预置一条引语，保证 JS 尚未执行时首屏即可见文字 -->
+          <p id="loadingQuote" class="loading-quote">天地混沌如鸡子，盘古生其中。一万八千岁，天地开辟。</p>
+          <p id="loadingQuoteSource" class="loading-quote-source">《三五历记》· 盘古开天</p>
+          <div class="loading-status">
+            <span class="loading-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span id="loadingText">正在初始化太阳系</span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!--
+      开场引语：内联脚本，随 HTML 解析立即执行。
+      不依赖体积较大的 three.min.js / planet-textures.js / solar-system.js，
+      因此即使在弱网下，加载文字也能在首屏立即显示并每 3 秒随机轮播。
+      场景就绪后由 solar-system.js 调用 window.SolarLoading.stop() 收起。
+    -->
+    <script>
+      (function () {
+        // 神话引语池，与中英文出处一一对应。
+        var quotes = [
+          { zh: "天地混沌如鸡子，盘古生其中。一万八千岁，天地开辟。", zhSource: "《三五历记》· 盘古开天", en: "Heaven and earth were a mingled chaos like an egg, and Pangu was born within. After eighteen thousand years, the heavens and the earth came apart.", enSource: "Records of Cycles · The Myth of Pangu" },
+          { zh: "遂古之初，谁传道之？上下未形，何由考之？", zhSource: "《楚辞 · 天问》· 屈原", en: "At the dawn of antiquity, who was there to hand down the tale? When above and below had no form, how can it be examined?", enSource: "Heavenly Questions · Qu Yuan" },
+          { zh: "日月之行，若出其中；星汉灿烂，若出其里。", zhSource: "《观沧海》· 曹操", en: "The sun and moon move as if rising from within it; the brilliant River of Stars seems to spill from inside it.", enSource: "Gazing at the Sea · Cao Cao" },
+          { zh: "有物混成，先天地生。寂兮寥兮，独立而不改，周行而不殆。", zhSource: "《道德经》· 老子", en: "Something formed from chaos was born before heaven and earth. Silent and boundless, it stands alone and unchanging, circling endlessly without fail.", enSource: "Tao Te Ching · Laozi" },
+          { zh: "日月星辰，亦积气中之有光耀者。", zhSource: "《列子 · 天瑞》", en: "The sun, the moon, and the stars are but the radiant ones among the gathered vapors.", enSource: "Liezi · Tianrui" },
+          { zh: "夸父与日逐走，入日。渴，欲得饮，饮于河、渭。", zhSource: "《山海经 · 海外北经》· 夸父逐日", en: "Kuafu raced against the sun and chased it to its setting. Parched, he sought to drink, and drank the Yellow River and the Wei.", enSource: "Classic of Mountains and Seas · Kuafu Chasing the Sun" },
+          { zh: "往古之时，四极废，九州裂……于是女娲炼五色石以补苍天。", zhSource: "《淮南子 · 览冥训》· 女娲补天", en: "In remote antiquity the four pillars collapsed and the nine lands split apart... so Nuwa smelted five-colored stones to mend the azure sky.", enSource: "Huainanzi · Nuwa Mending the Sky" },
+          { zh: "昔者共工与颛顼争为帝，怒而触不周之山，天柱折，地维绝。", zhSource: "《淮南子 · 天文训》· 共工触山", en: "Long ago Gonggong fought Zhuanxu for the throne and, in fury, struck Mount Buzhou — the pillar of heaven snapped and the cords of earth gave way.", enSource: "Huainanzi · Gonggong Strikes the Mountain" }
+        ];
+
+        var ROTATE_MS = 3000; // 轮播间隔
+        var MIN_DISPLAY_MS = 2400; // 最短展示时长，避免文字一闪而过
+
+        var quoteEl = document.getElementById("loadingQuote");
+        var sourceEl = document.getElementById("loadingQuoteSource");
+        var overlay = document.getElementById("loadingState");
+        // 根据 <html lang> 判断初始语言，默认中文。
+        var lang = (document.documentElement.lang || "zh").indexOf("en") === 0 ? "en" : "zh";
+        var index = Math.floor(Math.random() * quotes.length);
+        var rotateTimer = null;
+        var startTime = (window.performance && performance.now) ? performance.now() : Date.now();
+
+        // 渲染当前引语，并重新触发淡入动画。
+        function render() {
+          var q = quotes[index];
+          if (!q) return;
+          if (quoteEl) {
+            quoteEl.textContent = lang === "zh" ? q.zh : q.en;
+            quoteEl.style.animation = "none";
+            void quoteEl.offsetWidth; // 强制回流以重置动画
+            quoteEl.style.animation = "";
+          }
+          if (sourceEl) sourceEl.textContent = lang === "zh" ? q.zhSource : q.enSource;
+        }
+
+        // 随机切换到另一条（避免与当前重复）。
+        function rotate() {
+          if (quotes.length < 2) return;
+          var next = Math.floor(Math.random() * quotes.length);
+          if (next === index) next = (next + 1) % quotes.length;
+          index = next;
+          render();
+        }
+
+        // 立即渲染随机引语并开始轮播。
+        render();
+        if (quotes.length > 1) rotateTimer = window.setInterval(rotate, ROTATE_MS);
+
+        function now() {
+          return (window.performance && performance.now) ? performance.now() : Date.now();
+        }
+
+        // 暴露给 solar-system.js：场景就绪后收起开场动画（满足最短展示时长）。
+        window.SolarLoading = {
+          stop: function () {
+            var remaining = Math.max(0, MIN_DISPLAY_MS - (now() - startTime));
+            window.setTimeout(function () {
+              if (rotateTimer) {
+                window.clearInterval(rotateTimer);
+                rotateTimer = null;
+              }
+              if (overlay) overlay.classList.add("hidden");
+            }, remaining);
+          }
+        };
+      })();
+    </script>
+
+    <script src="./vendor/three.min.js?v=202606181610"></script>
+    <script src="./vendor/OrbitControls.js?v=202606181610"></script>
+    <script src="./assets/planet-textures.js?v=202606181840"></script>
+    <script src="./solar-system.js?v=202606291900"></script>
+  </body>
+</html>

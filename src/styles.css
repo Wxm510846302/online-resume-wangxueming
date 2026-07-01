@@ -1317,6 +1317,69 @@ section[id] {
   font-weight: 850;
 }
 
+.desktop-version-header {
+  max-width: none;
+  padding-inline: 28px;
+  border-bottom: 1px solid rgba(216, 224, 232, 0.78);
+  background: rgba(248, 250, 249, 0.86);
+}
+
+.desktop-version-main {
+  min-height: calc(100vh - 79px);
+  background: #0f1720;
+}
+
+.desktop-version-shell {
+  width: 100%;
+  height: calc(100vh - 79px);
+}
+
+.desktop-version-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #0f1720;
+}
+
+.desktop-version-locked {
+  display: grid;
+  min-height: calc(100vh - 79px);
+  place-items: center;
+  align-content: center;
+  gap: 18px;
+  padding: 28px;
+  color: #ffffff;
+  text-align: center;
+  background:
+    linear-gradient(135deg, rgba(0, 166, 178, 0.22), rgba(255, 181, 71, 0.12)),
+    #121a22;
+}
+
+.desktop-version-locked > span {
+  display: grid;
+  width: 62px;
+  height: 62px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  color: #67e8f9;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.desktop-version-locked h1 {
+  margin: 0;
+  font-size: clamp(34px, 6vw, 64px);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.desktop-version-locked p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 16px;
+}
+
 .nav {
   gap: 34px;
   color: #343d48;

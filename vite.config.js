@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { Readable } from "node:stream";
 import { handleCozeChat } from "./server/cozeProxy.js";
+import { handleResumeLogin } from "./server/resumeAuth.js";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -11,12 +12,35 @@ export default defineConfig(({ mode }) => {
   process.env.COZE_VOICE_ID ||= env.COZE_VOICE_ID;
   process.env.COZE_AGENT_VOICE_ID ||= env.COZE_AGENT_VOICE_ID;
   process.env.COZE_SPEECH_SPEED ||= env.COZE_SPEECH_SPEED;
+  process.env.RESUME_ADMIN_USERNAME ||= env.RESUME_ADMIN_USERNAME;
+  process.env.RESUME_ADMIN_PASSWORD ||= env.RESUME_ADMIN_PASSWORD;
+  process.env.RESUME_ADMIN_USERNAME_HASH ||= env.RESUME_ADMIN_USERNAME_HASH;
+  process.env.RESUME_ADMIN_PASSWORD_HASH ||= env.RESUME_ADMIN_PASSWORD_HASH;
+  process.env.RESUME_ADMIN_SESSION_TTL_SECONDS ||= env.RESUME_ADMIN_SESSION_TTL_SECONDS;
 
   return {
-    plugins: [react(), cozeDevApi()],
+    plugins: [react(), resumeLoginDevApi(), cozeDevApi()],
     base: process.env.VITE_BASE_PATH || "/",
   };
 });
+
+function resumeLoginDevApi() {
+  return {
+    name: "resume-login-dev-api",
+    configureServer(server) {
+      server.middlewares.use("/api/resume-login", async (req, res) => {
+        try {
+          const response = await handleResumeLogin(toWebRequest(req, server));
+          sendWebResponse(response, res);
+        } catch (error) {
+          res.statusCode = 500;
+          res.setHeader("Content-Type", "application/json; charset=utf-8");
+          res.end(JSON.stringify({ error: error.message || "Local resume login failed" }));
+        }
+      });
+    },
+  };
+}
 
 function cozeDevApi() {
   return {
@@ -25,17 +49,7 @@ function cozeDevApi() {
       server.middlewares.use("/api/coze-chat", async (req, res) => {
         try {
           const response = await handleCozeChat(toWebRequest(req, server));
-          res.statusCode = response.status;
-          response.headers.forEach((value, key) => {
-            res.setHeader(key, value);
-          });
-
-          if (!response.body) {
-            res.end();
-            return;
-          }
-
-          Readable.fromWeb(response.body).pipe(res);
+          sendWebResponse(response, res);
         } catch (error) {
           res.statusCode = 500;
           res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -44,6 +58,20 @@ function cozeDevApi() {
       });
     },
   };
+}
+
+function sendWebResponse(response, res) {
+  res.statusCode = response.status;
+  response.headers.forEach((value, key) => {
+    res.setHeader(key, value);
+  });
+
+  if (!response.body) {
+    res.end();
+    return;
+  }
+
+  Readable.fromWeb(response.body).pipe(res);
 }
 
 function toWebRequest(req, server) {

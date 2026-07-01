@@ -1,0 +1,1234 @@
+:root {
+  --bg: #020409;
+  --panel: rgba(4, 8, 16, 0.72);
+  --panel-strong: rgba(6, 12, 22, 0.9);
+  --line: rgba(151, 176, 210, 0.22);
+  --line-strong: rgba(151, 176, 210, 0.38);
+  --text: #edf6ff;
+  --muted: #9caec7;
+  --dim: #63738c;
+  --cyan: #18c8ff;
+  --amber: #ffb54a;
+  --green: #51d6a2;
+  --danger: #ff6b7a;
+  --shadow: 0 20px 80px rgba(0, 0, 0, 0.55);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+}
+
+button,
+select,
+input {
+  font: inherit;
+}
+
+.solar-app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  height: 100svh;
+  min-height: 620px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 72% 18%, rgba(72, 92, 130, 0.2), transparent 23%),
+    radial-gradient(circle at 14% 82%, rgba(24, 200, 255, 0.08), transparent 19%),
+    #020409;
+}
+
+.solar-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.topbar,
+.focus-panel,
+.scale-panel,
+.detail-panel,
+.bottom-controls,
+.hint {
+  position: absolute;
+  z-index: 3;
+}
+
+.topbar {
+  top: 18px;
+  left: 18px;
+  right: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  pointer-events: none;
+}
+
+.brand,
+.top-actions,
+.focus-panel,
+.scale-panel,
+.detail-panel,
+.bottom-controls {
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(8, 13, 24, 0.82), rgba(3, 6, 12, 0.72));
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  height: 54px;
+  overflow: hidden;
+  border-radius: 8px;
+  color: var(--text);
+  text-decoration: none;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  pointer-events: auto;
+}
+
+.brand-mark {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border-right: 1px solid var(--line);
+  color: var(--cyan);
+  font-weight: 800;
+}
+
+.brand span:last-child {
+  padding: 0 18px;
+  font-size: 15px;
+}
+
+.brand b {
+  color: var(--cyan);
+  font-weight: 600;
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 8px;
+  pointer-events: auto;
+}
+
+.control-btn,
+.select-control,
+.range-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+}
+
+.control-btn,
+.select-control {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.control-btn {
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.control-btn:hover,
+.select-control:hover {
+  border-color: var(--line-strong);
+}
+
+.control-btn:focus-visible,
+.select-control select:focus-visible,
+.range-control input:focus-visible,
+.planet-nav button:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 3px;
+}
+
+#pauseIcon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid rgba(24, 200, 255, 0.55);
+  border-radius: 999px;
+  color: var(--cyan);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.select-control {
+  padding: 0 10px 0 12px;
+}
+
+.select-control span,
+.range-control span,
+.scale-panel h2 {
+  color: var(--cyan);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.select-control select {
+  min-width: 86px;
+  border: 0;
+  color: var(--text);
+  background: transparent;
+}
+
+.focus-panel {
+  top: 154px;
+  left: 18px;
+  width: 176px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.focus-panel h1 {
+  margin: 0;
+  padding: 18px 16px 6px;
+  font-size: 14px;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.focus-panel p {
+  margin: 0;
+  padding: 0 16px 14px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.planet-nav {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.planet-nav button {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid rgba(151, 176, 210, 0.12);
+  border-radius: 6px;
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.2);
+  text-align: left;
+  cursor: pointer;
+}
+
+.planet-nav button:hover,
+.planet-nav button.active {
+  border-color: rgba(24, 200, 255, 0.8);
+  color: #ffffff;
+}
+
+.planet-dot {
+  width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  border-radius: 50%;
+  box-shadow: inset -5px -4px 8px rgba(0, 0, 0, 0.45), 0 0 12px rgba(255, 255, 255, 0.15);
+}
+
+.scale-panel {
+  left: 18px;
+  bottom: 26px;
+  width: 288px;
+  padding: 15px 16px 14px;
+  border-radius: 8px;
+}
+
+.scale-panel h2 {
+  margin: 0 0 10px;
+  text-transform: uppercase;
+}
+
+.scale-panel p {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.scale-panel dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.scale-panel div {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  font-size: 12px;
+}
+
+.scale-panel dt {
+  color: var(--dim);
+}
+
+.scale-panel dd {
+  margin: 0;
+  color: var(--text);
+}
+
+.detail-panel {
+  right: 28px;
+  top: 104px;
+  width: min(360px, calc(100vw - 56px));
+  padding: 16px 18px;
+  border-radius: 8px;
+  transform: translateY(-8px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+body.close-view .detail-panel {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.detail-kicker {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--cyan);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.detail-panel h2 {
+  margin: 0 0 9px;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.detail-panel p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.detail-intro {
+  margin-top: 10px;
+}
+
+.detail-stats {
+  display: grid;
+  gap: 7px;
+  margin: 13px 0 0;
+  padding: 11px 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.detail-stats div {
+  display: grid;
+  grid-template-columns: 94px 1fr;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.detail-stats dt {
+  color: var(--dim);
+}
+
+.detail-stats dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--text);
+}
+
+.sound-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.sound-btn,
+.sound-voice {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  border: 1px solid rgba(24, 200, 255, 0.58);
+  border-radius: 7px;
+  color: var(--text);
+  background: rgba(24, 200, 255, 0.1);
+}
+
+.sound-btn {
+  gap: 8px;
+  padding: 0 12px;
+  cursor: pointer;
+}
+
+.sound-voice {
+  max-width: 148px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+.sound-btn:hover,
+.sound-voice:hover {
+  border-color: rgba(24, 200, 255, 0.9);
+  background: rgba(24, 200, 255, 0.16);
+}
+
+.sound-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.sound-btn[aria-pressed="true"] {
+  border-color: rgba(255, 181, 74, 0.8);
+  background: rgba(255, 181, 74, 0.16);
+}
+
+.sound-source {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cyan);
+  font-size: 12px;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sound-source:hover {
+  text-decoration: underline;
+}
+
+.sound-meta {
+  margin-top: 8px !important;
+  color: var(--dim) !important;
+  font-size: 11px !important;
+}
+
+body.galaxy-view .solar-app {
+  background:
+    radial-gradient(circle at 50% 48%, rgba(255, 206, 129, 0.14), transparent 16%),
+    radial-gradient(circle at 68% 18%, rgba(128, 176, 255, 0.18), transparent 22%),
+    radial-gradient(circle at 20% 82%, rgba(24, 200, 255, 0.08), transparent 18%),
+    #020409;
+}
+
+body.galaxy-view .scale-panel {
+  border-color: rgba(255, 181, 74, 0.48);
+}
+
+body.galaxy-view .scale-panel h2 {
+  color: var(--amber);
+}
+
+.bottom-controls {
+  right: 28px;
+  bottom: 26px;
+  display: grid;
+  grid-template-columns: minmax(260px, 380px) minmax(260px, 380px);
+  gap: 18px;
+  padding: 13px 16px;
+  border-radius: 8px;
+}
+
+.range-control {
+  display: grid;
+  grid-template-columns: 58px 1fr 82px;
+  min-width: 0;
+}
+
+.range-control input {
+  width: 100%;
+  accent-color: var(--cyan);
+}
+
+.range-control output {
+  text-align: right;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.labels-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.planet-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: rgba(237, 246, 255, 0.86);
+  font-size: 13px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.95);
+  white-space: nowrap;
+}
+
+.planet-label.active {
+  color: var(--cyan);
+  font-weight: 700;
+}
+
+.hint {
+  left: 50%;
+  bottom: 11px;
+  margin: 0;
+  transform: translateX(-50%);
+  color: rgba(237, 246, 255, 0.62);
+  font-size: 12px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.loading-state {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--muted);
+  /* 星河底色：深空径向渐变叠加几团彩色星云，营造银河的层次感 */
+  background:
+    radial-gradient(135% 115% at 18% 22%, rgba(120, 92, 220, 0.26) 0%, transparent 46%),
+    radial-gradient(120% 120% at 82% 76%, rgba(38, 150, 220, 0.22) 0%, transparent 50%),
+    radial-gradient(95% 95% at 62% 48%, rgba(255, 110, 180, 0.12) 0%, transparent 55%),
+    radial-gradient(120% 120% at 50% 38%, #0a1530 0%, #050a18 46%, #020409 100%);
+  transition: opacity 0.6s ease, visibility 0.6s ease;
+}
+
+/* 远近两层星点：纯渐变绘制，无需任何图片，首屏即可呈现 */
+.loading-state::before {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  background-image:
+    radial-gradient(1.4px 1.4px at 20px 30px, #ffffff, transparent),
+    radial-gradient(1.2px 1.2px at 58px 140px, #cfe0ff, transparent),
+    radial-gradient(1px 1px at 95px 60px, #ffffff, transparent),
+    radial-gradient(1.3px 1.3px at 130px 190px, #e7eeff, transparent),
+    radial-gradient(1px 1px at 165px 40px, #bcd2ff, transparent),
+    radial-gradient(1.2px 1.2px at 200px 110px, #ffffff, transparent),
+    radial-gradient(1px 1px at 40px 200px, #d7e3ff, transparent),
+    radial-gradient(1.3px 1.3px at 150px 120px, #ffffff, transparent),
+    radial-gradient(1px 1px at 85px 175px, #c3d6ff, transparent),
+    radial-gradient(1.1px 1.1px at 180px 165px, #ffffff, transparent),
+    radial-gradient(1px 1px at 25px 95px, #e7eeff, transparent),
+    radial-gradient(1.2px 1.2px at 110px 25px, #ffffff, transparent);
+  background-size: 220px 220px;
+  background-repeat: repeat;
+  opacity: 0.9;
+  animation: starDrift 140s linear infinite, starTwinkle 5s ease-in-out infinite;
+}
+
+/* 银河“星河”光带 + 几颗更亮的星，斜贯画面缓慢漂移 */
+.loading-state::after {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  background-image:
+    radial-gradient(2px 2px at 40px 60px, #ffffff, transparent),
+    radial-gradient(1.8px 1.8px at 220px 120px, #fff3d6, transparent),
+    radial-gradient(2px 2px at 120px 250px, #ffffff, transparent),
+    radial-gradient(1.8px 1.8px at 280px 300px, #d6e6ff, transparent),
+    radial-gradient(2.2px 2.2px at 180px 30px, #ffffff, transparent),
+    radial-gradient(1.8px 1.8px at 300px 180px, #fff3d6, transparent),
+    /* 星河主光带：拉长的椭圆柔光，斜贯整屏 */
+    radial-gradient(60% 16% at 50% 50%, rgba(190, 205, 255, 0.16) 0%, rgba(150, 130, 255, 0.08) 42%, transparent 72%);
+  background-size: 340px 340px, 340px 340px, 340px 340px, 340px 340px, 340px 340px, 340px 340px, 100% 100%;
+  background-repeat: repeat, repeat, repeat, repeat, repeat, repeat, no-repeat;
+  background-position: center;
+  transform: rotate(-22deg);
+  animation: riverDrift 200s linear infinite;
+}
+
+.loading-state.hidden {
+  visibility: hidden;
+  opacity: 0;
+}
+
+.loading-stage {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 24px;
+  max-width: 560px;
+  text-align: center;
+}
+
+/* —— 中心星象徽记 —— */
+.loading-sigil {
+  width: 168px;
+  height: 168px;
+  filter: drop-shadow(0 0 24px rgba(24, 200, 255, 0.18));
+}
+
+.loading-sigil .sigil-core {
+  fill: #ffdf9a;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sigilPulse 2.6s ease-in-out infinite;
+}
+
+.loading-sigil .sigil-core-glow {
+  opacity: 0.9;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sigilGlow 2.6s ease-in-out infinite;
+}
+
+.loading-sigil .sigil-ring {
+  fill: none;
+  stroke: url(#ringStroke);
+  stroke-width: 1.2;
+  stroke-dasharray: 6 10;
+  opacity: 0.55;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.loading-sigil .sigil-ring-outer {
+  animation: sigilSpin 18s linear infinite;
+}
+
+.loading-sigil .sigil-ring-mid {
+  stroke-dasharray: 3 7;
+  opacity: 0.4;
+  animation: sigilSpinReverse 12s linear infinite;
+}
+
+.loading-sigil .sigil-orbit {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sigilSpin 7s linear infinite;
+}
+
+.loading-sigil .sigil-planet {
+  fill: #18c8ff;
+  filter: drop-shadow(0 0 6px rgba(24, 200, 255, 0.8));
+}
+
+.loading-sigil .sigil-stars circle {
+  fill: #cfe0ff;
+  opacity: 0.7;
+  animation: sigilTwinkle 3.2s ease-in-out infinite;
+}
+
+.loading-sigil .sigil-stars circle:nth-child(2n) {
+  animation-delay: 0.8s;
+}
+
+.loading-sigil .sigil-stars circle:nth-child(3n) {
+  animation-delay: 1.6s;
+}
+
+/* —— 神话开场白 —— */
+.loading-quote {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.7;
+  letter-spacing: 0.5px;
+  color: var(--text);
+  text-shadow: 0 2px 18px rgba(24, 200, 255, 0.25);
+  animation: quoteFade 1s ease both;
+}
+
+.loading-quote-source {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--amber);
+  opacity: 0.85;
+  animation: quoteFade 1s ease 0.2s both;
+}
+
+/* —— 状态行 —— */
+.loading-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+
+.loading-dots {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.loading-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cyan);
+  opacity: 0.4;
+  animation: dotBlink 1.2s ease-in-out infinite;
+}
+
+.loading-dots i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.loading-dots i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes sigilSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes sigilSpinReverse {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes sigilPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    fill: #ffdf9a;
+  }
+  50% {
+    transform: scale(1.12);
+    fill: #fff2cf;
+  }
+}
+
+@keyframes sigilGlow {
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes sigilTwinkle {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes quoteFade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dotBlink {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+/* 近层星点缓慢平移，制造视差与“流动”的星河感。
+   位移取一整块贴图（220px）的整数倍，保证循环无缝、不跳变。 */
+@keyframes starDrift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-220px, -220px, 0);
+  }
+}
+
+/* 整层星点的明暗呼吸 */
+@keyframes starTwinkle {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+
+/* 星河光带与亮星层的缓慢漂移（已带 -22deg 旋转） */
+@keyframes riverDrift {
+  from {
+    transform: rotate(-22deg) translate3d(0, 0, 0);
+  }
+  to {
+    transform: rotate(-22deg) translate3d(-340px, 0, 0);
+  }
+}
+
+@media (max-width: 900px) {
+  .solar-app {
+    min-height: 0;
+  }
+
+  .topbar {
+    top: max(10px, env(safe-area-inset-top));
+    right: max(10px, env(safe-area-inset-right));
+    left: max(10px, env(safe-area-inset-left));
+    align-items: center;
+    gap: 10px;
+  }
+
+  .brand {
+    width: auto;
+    height: 44px;
+    flex: 0 0 auto;
+  }
+
+  .brand-mark {
+    width: 44px;
+    height: 44px;
+  }
+
+  .brand span:last-child {
+    max-width: 150px;
+    padding: 0 12px;
+    overflow: hidden;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .top-actions {
+    width: auto;
+    max-width: calc(100vw - 168px - env(safe-area-inset-left) - env(safe-area-inset-right));
+    gap: 8px;
+    padding: 6px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+
+  .control-btn,
+  .select-control {
+    min-height: 34px;
+    flex: 0 0 auto;
+    font-size: 12px;
+  }
+
+  .control-btn {
+    padding: 0 10px;
+  }
+
+  #pauseIcon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .select-control {
+    padding: 0 8px 0 10px;
+  }
+
+  .select-control span {
+    display: none;
+  }
+
+  .select-control select {
+    min-width: 70px;
+  }
+
+  .focus-panel {
+    top: auto;
+    left: max(10px, env(safe-area-inset-left));
+    right: max(10px, env(safe-area-inset-right));
+    bottom: calc(116px + env(safe-area-inset-bottom));
+    width: auto;
+  }
+
+  .focus-panel h1,
+  .focus-panel p {
+    display: none;
+  }
+
+  .planet-nav {
+    display: flex;
+    gap: 7px;
+    padding: 7px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    border-top: 0;
+  }
+
+  .planet-nav button {
+    grid-template-columns: 20px max-content;
+    width: auto;
+    min-width: 78px;
+    min-height: 34px;
+    flex: 0 0 auto;
+    gap: 7px;
+    padding-right: 12px;
+    font-size: 13px;
+  }
+
+  .planet-dot {
+    width: 14px;
+    height: 14px;
+    margin-left: 4px;
+  }
+
+  .scale-panel {
+    left: max(10px, env(safe-area-inset-left));
+    bottom: calc(176px + env(safe-area-inset-bottom));
+    width: min(280px, calc(100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+    padding: 12px 14px;
+  }
+
+  .scale-panel p {
+    margin-bottom: 0;
+  }
+
+  .scale-panel dl {
+    display: none;
+  }
+
+  .bottom-controls {
+    right: max(10px, env(safe-area-inset-right));
+    left: max(10px, env(safe-area-inset-left));
+    bottom: calc(26px + env(safe-area-inset-bottom));
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .detail-panel {
+    top: 72px;
+    right: max(10px, env(safe-area-inset-right));
+    left: max(10px, env(safe-area-inset-left));
+    width: auto;
+    padding: 12px 14px;
+  }
+
+  .detail-panel h2 {
+    font-size: 16px;
+  }
+
+  .detail-panel p {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  .detail-panel .detail-stats,
+  .detail-panel .sound-meta {
+    display: none;
+  }
+
+  .detail-panel .detail-intro {
+    -webkit-line-clamp: 4;
+  }
+
+  .sound-controls {
+    margin-top: 10px;
+  }
+
+  .hint {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .brand {
+    width: 100%;
+  }
+
+  .brand span:last-child {
+    font-size: 13px;
+  }
+
+  .top-actions {
+    gap: 8px;
+  }
+
+  .control-btn,
+  .select-control {
+    min-height: 38px;
+    font-size: 13px;
+  }
+
+  .focus-panel {
+    bottom: calc(112px + env(safe-area-inset-bottom));
+  }
+
+  .scale-panel {
+    display: none;
+  }
+
+  .bottom-controls {
+    padding: 12px;
+  }
+
+  .range-control {
+    grid-template-columns: 48px 1fr 74px;
+  }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .topbar {
+    top: max(8px, env(safe-area-inset-top));
+    gap: 8px;
+  }
+
+  .brand {
+    height: 38px;
+  }
+
+  .brand-mark {
+    width: 38px;
+    height: 38px;
+  }
+
+  .brand span:last-child {
+    max-width: 118px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+
+  .top-actions {
+    max-width: calc(100vw - 160px - env(safe-area-inset-left) - env(safe-area-inset-right));
+    padding: 5px;
+  }
+
+  .control-btn,
+  .select-control {
+    min-height: 30px;
+    font-size: 11px;
+  }
+
+  #pauseIcon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .focus-panel {
+    top: 60px;
+    right: auto;
+    bottom: auto;
+    left: max(8px, env(safe-area-inset-left));
+    width: min(142px, 22vw);
+    max-height: calc(100svh - 126px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+
+  .planet-nav {
+    display: grid;
+    max-height: inherit;
+    overflow-y: auto;
+    overflow-x: hidden;
+    gap: 5px;
+    padding: 6px;
+  }
+
+  .planet-nav button {
+    grid-template-columns: 18px 1fr;
+    width: 100%;
+    min-width: 0;
+    min-height: 28px;
+    padding-right: 8px;
+    font-size: 11px;
+  }
+
+  .planet-dot {
+    width: 12px;
+    height: 12px;
+  }
+
+  .scale-panel {
+    display: none;
+  }
+
+  .detail-panel {
+    top: 60px;
+    right: max(8px, env(safe-area-inset-right));
+    left: auto;
+    width: min(300px, 38vw);
+    padding: 10px 12px;
+  }
+
+  .detail-kicker {
+    margin-bottom: 5px;
+    font-size: 10px;
+  }
+
+  .detail-panel h2 {
+    margin-bottom: 5px;
+    font-size: 14px;
+  }
+
+  .detail-panel p {
+    font-size: 11px;
+    line-height: 1.45;
+    -webkit-line-clamp: 2;
+  }
+
+  .detail-panel .detail-intro,
+  .detail-panel .detail-stats,
+  .detail-panel .sound-meta {
+    display: none;
+  }
+
+  .sound-controls {
+    margin-top: 8px;
+  }
+
+  .sound-btn {
+    min-height: 28px;
+    padding: 0 9px;
+    font-size: 11px;
+  }
+
+  .sound-voice {
+    min-height: 28px;
+    max-width: 112px;
+    font-size: 10px;
+  }
+
+  .sound-source {
+    max-width: 132px;
+    font-size: 10px;
+  }
+
+  .bottom-controls {
+    right: max(8px, env(safe-area-inset-right));
+    left: max(158px, calc(env(safe-area-inset-left) + 158px));
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    grid-template-columns: minmax(170px, 1fr) minmax(190px, 1fr);
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .range-control {
+    grid-template-columns: 38px 1fr 62px;
+    gap: 8px;
+    font-size: 11px;
+  }
+
+  .planet-label {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 420px) and (orientation: portrait) {
+  .topbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .brand {
+    width: 100%;
+  }
+
+  .brand span:last-child {
+    max-width: none;
+  }
+
+  .top-actions {
+    width: 100%;
+    max-width: none;
+  }
+
+  .focus-panel {
+    bottom: calc(108px + env(safe-area-inset-bottom));
+  }
+
+  .bottom-controls {
+    bottom: calc(18px + env(safe-area-inset-bottom));
+  }
+
+  .range-control {
+    grid-template-columns: 42px minmax(0, 1fr) 66px;
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  .planet-nav button {
+    min-width: 72px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 900px) {
+  .loading-stage {
+    max-width: 88vw;
+    gap: 14px;
+  }
+
+  .loading-sigil {
+    width: 128px;
+    height: 128px;
+  }
+
+  .loading-quote {
+    font-size: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-state {
+    transition: none;
+  }
+
+  /* 尊重系统“减少动态效果”偏好：关闭旋转、脉冲、闪烁与星河漂移 */
+  .loading-sigil .sigil-core,
+  .loading-sigil .sigil-core-glow,
+  .loading-sigil .sigil-ring-outer,
+  .loading-sigil .sigil-ring-mid,
+  .loading-sigil .sigil-orbit,
+  .loading-sigil .sigil-stars circle,
+  .loading-dots i,
+  .loading-state::before,
+  .loading-state::after {
+    animation: none;
+  }
+}

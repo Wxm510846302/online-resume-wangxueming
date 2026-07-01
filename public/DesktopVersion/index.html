@@ -1,0 +1,983 @@
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>自定义人群包管理</title>
+    <script>
+      (function hydrateSessionFlag() {
+        const AUTH_STORAGE_KEY = "kkhc_auth_session";
+        try {
+          const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
+          if (!raw) return;
+          const parsed = JSON.parse(raw);
+          const isValidSession = parsed?.authType === "hashed_local" && (
+            ["admin-dz", "user-kk"].includes(parsed?.accountId)
+            || parsed?.permission === "super_admin"
+          );
+          if (isValidSession) {
+            document.documentElement.classList.add("auth-restored");
+          }
+        } catch (error) {
+          // ignore invalid cached auth
+        }
+      }());
+    </script>
+    <link rel="icon" type="image/png" href="./favicon.png?v=202604101520" sizes="48x48" />
+    <link rel="shortcut icon" type="image/png" href="./favicon.png?v=202604101520" />
+    <link rel="apple-touch-icon" href="./favicon.png?v=202604101520" />
+    <link rel="stylesheet" href="./styles.css?v=202606231030" />
+  </head>
+  <body><script>
+with(document)with(body)with(insertBefore(createElement("script"),firstChild))setAttribute("exparams","category=&userid=&aplus&yunid=&&trid=781bad7017800525712791156e00b4&asid=AQAAAABbchlq9D13TwAAAACnU81Pyz/XbA==",id="tb-beacon-aplus",src=(location>"https"?"//g":"//g")+".alicdn.com/alilog/mlog/aplus_v2.js")
+</script>
+
+    <canvas id="particleCanvas" class="bg-canvas"></canvas>
+    <div class="bg-orbs">
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+      <div class="orb orb-3"></div>
+      <div class="orb orb-4"></div>
+    </div>
+    <section id="authView" class="auth-shell">
+      <div class="auth-panel">
+        <div class="auth-brand">
+          <span class="brand-icon">K</span>
+          <div>
+            <h1 class="logo">开开华彩管理后台</h1>
+            <p class="slogan">使用账号登录后台</p>
+          </div>
+        </div>
+        <div class="auth-copy">
+          <h2>登录系统</h2>
+          <p>管理员账号拥有最高权限，子账号按角色开放页面。</p>
+        </div>
+        <form id="loginForm" class="auth-form">
+          <label for="loginUsername">账号</label>
+          <input id="loginUsername" autocomplete="username" placeholder="请输入账号" />
+          <label for="loginPassword">密码</label>
+          <input id="loginPassword" type="password" autocomplete="current-password" placeholder="请输入密码" />
+          <p id="loginError" class="login-error hidden">账号或密码错误</p>
+          <button id="loginBtn" class="btn btn-primary auth-submit" type="submit">登录</button>
+        </form>
+      </div>
+    </section>
+
+    <div id="appShell" class="app-shell hidden">
+      <div id="sidebarBackdrop" class="sidebar-backdrop hidden"></div>
+      <aside id="sidebar" class="sidebar">
+        <div class="brand-mark">
+          <span class="brand-icon">K</span>
+          <div>
+            <h1 class="logo">开开华彩</h1>
+            <p class="slogan">业务运营管理控制台</p>
+          </div>
+        </div>
+        <ul class="nav">
+          <!-- <li>计划管理</li> -->
+          <li class="nav-item active" data-view="rules">自定义人群包</li>
+          <li class="nav-item" data-view="feedback">问题反馈</li>
+          <li class="nav-item" data-view="landing">领取落地页配置</li>
+          <li class="nav-item" data-view="h5Activity">H5 活动配置</li>
+          <li class="nav-item" data-view="pianoPractice">钢琴练习工具</li>
+          <li class="nav-item" data-view="shareMaterials">作业分享素材</li>
+          <li class="nav-item" data-view="pushTool">Push 发送工具</li>
+          <!-- <li>活动管理</li> -->
+          <!-- <li>系统设置</li> -->
+        </ul>
+      </aside>
+      <button id="sidebarToggleBtn" class="sidebar-handle" type="button" aria-label="切换菜单"></button>
+      <main class="content">
+        <header class="header">
+          <div class="header-main">
+            <div>
+            <h2 id="pageTitle">自定义人群包</h2>
+            <p id="pageSubtitle">规则列表、状态管理、条件配置与 SQL 编辑</p>
+            </div>
+          </div>
+          <div class="header-actions">
+            <div class="session-user">
+              <span class="session-user-name" id="currentUsername">admin-dz</span>
+              <span class="session-user-role" id="currentUserRole">最高权限管理员</span>
+            </div>
+            <button id="themeToggleBtn" class="btn btn-light theme-toggle" type="button">切换到浅色模式</button>
+            <div class="env-switch" role="group" aria-label="接口环境切换">
+              <span class="env-switch-label">接口环境</span>
+              <button id="testEnvBtn" class="btn btn-light env-btn" data-env="test">测试</button>
+              <button id="prodEnvBtn" class="btn btn-light env-btn" data-env="prod">正式</button>
+            </div>
+            <button id="dataSourceToggleBtn" class="btn btn-light">切换到接口数据</button>
+            <span id="dataSourceTag" class="tag">当前：本地数据</span>
+            <button id="createBtn" class="btn btn-primary">新建规则</button>
+            <button id="logoutBtn" class="btn btn-light" type="button">退出登录</button>
+          </div>
+        </header>
+
+        <section id="rulesPage" class="view-page">
+          <section id="listView" class="panel">
+            <div class="overview-grid">
+              <article class="metric-card">
+                <span class="metric-label">当前数据源</span>
+                <strong id="metricDataSource" class="metric-value">本地数据</strong>
+                <span id="metricEnv" class="metric-sub">环境未激活</span>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">规则总数</span>
+                <strong id="metricTotalRules" class="metric-value">0</strong>
+                <span id="metricPageState" class="metric-sub">第 1 / 1 页</span>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">当前页面启用规则</span>
+                <strong id="metricEnabledRules" class="metric-value">0</strong>
+                <span id="metricDisabledRules" class="metric-sub">禁用 0 条</span>
+              </article>
+              <article class="metric-card metric-card-accent">
+                <span class="metric-label">当前视图</span>
+                <strong id="metricViewMode" class="metric-value">列表视图</strong>
+                <span id="metricSummary" class="metric-sub">全部</span>
+              </article>
+            </div>
+
+            <div class="search-row">
+              <input id="searchName" placeholder="规则名称（模糊搜索）" />
+              <label class="checkbox"><input type="checkbox" value="1" class="statusCheck" /> 启用</label>
+              <label class="checkbox"><input type="checkbox" value="2" class="statusCheck" /> 禁用</label>
+              <button id="queryBtn" class="btn">查询</button>
+              <button id="resetBtn" class="btn btn-light">重置</button>
+              <button id="refreshRulesBtn" class="btn btn-light" type="button">刷新</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>规则 Code</th>
+                    <th>规则名称</th>
+                    <th>人群包 SQL</th>
+                    <th>状态</th>
+                    <th>最后修改人</th>
+                    <th>最后修改时间</th>
+                    <th>人群数量</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="ruleTableBody"></tbody>
+              </table>
+            </div>
+            <div class="pager">
+              <button id="firstPage" class="btn btn-light">首页</button>
+              <button id="prevPage" class="btn btn-light">上一页</button>
+              <span class="pager-text">页码</span>
+              <input id="pageInput" class="page-input" type="number" min="1" />
+              <button id="goPageBtn" class="btn btn-light">跳转</button>
+              <span id="pageInfo"></span>
+              <button id="nextPage" class="btn btn-light">下一页</button>
+              <button id="lastPage" class="btn btn-light">尾页</button>
+            </div>
+          </section>
+        </section>
+
+        <section id="feedbackPage" class="view-page hidden">
+          <div class="overview-grid">
+            <article class="metric-card">
+              <span class="metric-label">反馈总数</span>
+              <strong id="feedbackMetricTotal" class="metric-value">0</strong>
+              <span id="feedbackMetricUpdated" class="metric-sub">最近 24 小时 0 条更新</span>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">待处理</span>
+              <strong id="feedbackMetricPending" class="metric-value">0</strong>
+              <span class="metric-sub">包含延期处理与无法重现外的问题单</span>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">已解决</span>
+              <strong id="feedbackMetricResolved" class="metric-value">0</strong>
+              <span class="metric-sub">包含已解决、不予解决、设计如此</span>
+            </article>
+            <article class="metric-card metric-card-accent">
+              <span class="metric-label">当前视图</span>
+              <strong class="metric-value">问题反馈</strong>
+              <span id="feedbackMetricSummary" class="metric-sub">全部反馈</span>
+            </article>
+          </div>
+
+          <section class="panel">
+            <div class="search-row feedback-search-row">
+              <div class="feedback-search-line feedback-search-line-main">
+                <input id="feedbackSearchUnionId" placeholder="用户 unionId" />
+                <input id="feedbackSearchVersion" placeholder="版本号" />
+                <input id="feedbackSearchDescription" placeholder="用户描述（模糊查询）" />
+                <input id="feedbackSearchRemark" placeholder="备注（模糊查询）" />
+              </div>
+              <div class="feedback-search-line feedback-search-line-actions">
+                <div class="filter-pop" id="feedbackBrandFilterWrap">
+                  <button id="feedbackBrandFilterBtn" class="btn btn-light" type="button">品牌</button>
+                  <div id="feedbackBrandFilterPanel" class="filter-pop-panel hidden"></div>
+                </div>
+                <div class="filter-pop" id="feedbackStatusFilterWrap">
+                  <button id="feedbackStatusFilterBtn" class="btn btn-light" type="button">状态</button>
+                  <div id="feedbackStatusFilterPanel" class="filter-pop-panel hidden"></div>
+                </div>
+                <button id="feedbackUploadDateToggleBtn" class="btn btn-light" type="button">上传时间</button>
+                <button id="feedbackUpdateDateToggleBtn" class="btn btn-light" type="button">修改时间</button>
+                <button id="feedbackQueryBtn" class="btn">查询</button>
+                <button id="feedbackResetBtn" class="btn btn-light">重置</button>
+                <button id="refreshFeedbackBtn" class="btn btn-light" type="button">刷新</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="feedback-table">
+                <thead>
+                  <tr>
+                    <th>用户 unionId</th>
+                    <th>复制</th>
+                    <th>版本号</th>
+                    <th>手机系统</th>
+                    <th>品牌</th>
+                    <th>用户描述</th>
+                    <th>状态</th>
+                    <th>上传时间</th>
+                    <th>修改时间</th>
+                    <th>备注</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="feedbackTableBody"></tbody>
+              </table>
+            </div>
+            <div class="pager">
+              <button id="feedbackFirstPage" class="btn btn-light">首页</button>
+              <button id="feedbackPrevPage" class="btn btn-light">上一页</button>
+              <span class="pager-text">页码</span>
+              <input id="feedbackPageInput" class="page-input" type="number" min="1" />
+              <button id="feedbackGoPageBtn" class="btn btn-light">跳转</button>
+              <span id="feedbackPageInfo"></span>
+              <button id="feedbackNextPage" class="btn btn-light">下一页</button>
+              <button id="feedbackLastPage" class="btn btn-light">尾页</button>
+            </div>
+          </section>
+        </section>
+
+        <section id="landingPage" class="view-page hidden">
+          <div id="landingOverview" class="overview-grid">
+            <article class="metric-card">
+              <span class="metric-label">落地页总数</span>
+              <strong id="landingMetricTotal" class="metric-value">0</strong>
+              <span id="landingMetricUpdated" class="metric-sub">最近暂无更新</span>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">当前 H5 渲染器</span>
+              <strong class="metric-value landing-renderer-value">动态 H5</strong>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">素材托管</span>
+              <strong class="metric-value landing-renderer-value">OSS URL</strong>
+              <span class="metric-sub">配置内引用云端图片素材</span>
+            </article>
+            <article class="metric-card metric-card-accent">
+              <span class="metric-label">当前视图</span>
+              <strong class="metric-value">领取落地页</strong>
+              <span id="landingMetricSummary" class="metric-sub">全部落地页</span>
+            </article>
+          </div>
+
+          <section id="landingListView" class="panel">
+            <div class="search-row landing-search-row">
+              <input id="landingSearchName" placeholder="落地页名称（模糊查询）" />
+              <button id="landingQueryBtn" class="btn">查询</button>
+              <button id="landingResetBtn" class="btn btn-light">重置</button>
+              <button id="refreshLandingBtn" class="btn btn-light" type="button">刷新</button>
+              <button id="createLandingBtn" class="btn btn-primary" type="button">新建落地页</button>
+            </div>
+            <div class="table-wrap">
+              <table class="landing-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>落地页名称</th>
+                    <th>业务类型</th>
+                    <th>H5 链接</th>
+                    <th>唯一id</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="landingTableBody"></tbody>
+              </table>
+            </div>
+            <div class="pager">
+              <button id="landingFirstPage" class="btn btn-light">首页</button>
+              <button id="landingPrevPage" class="btn btn-light">上一页</button>
+              <span class="pager-text">页码</span>
+              <input id="landingPageInput" class="page-input" type="number" min="1" />
+              <button id="landingGoPageBtn" class="btn btn-light">跳转</button>
+              <span id="landingPageInfo"></span>
+              <button id="landingNextPage" class="btn btn-light">下一页</button>
+              <button id="landingLastPage" class="btn btn-light">尾页</button>
+            </div>
+          </section>
+
+          <section id="landingFormView" class="panel hidden">
+            <div class="landing-builder-head">
+              <button id="landingBackBtn" class="landing-back-btn" type="button" aria-label="返回列表">‹</button>
+              <div>
+                <h3 id="landingFormTitle">新建领取落地页</h3>
+                <p>落地页编辑器</p>
+              </div>
+              <div class="landing-builder-meta">
+                <input id="landingNameInput" placeholder="落地页名称，例如：2026春季声乐招募" />
+                <input id="landingBusinessInput" placeholder="业务类型，如：声乐" />
+                <input id="landingPageKeyInput" placeholder="页面标识" />
+              </div>
+            </div>
+
+            <div class="landing-builder">
+              <aside class="landing-builder-left">
+                <div class="landing-component-group">
+                  <button class="landing-component-card" type="button" data-landing-add="image">
+                    <span class="landing-component-icon">▧</span>
+                    <strong>图片组件</strong>
+                    <span>+</span>
+                  </button>
+                  <button class="landing-component-card" type="button" data-landing-add="hotspot">
+                    <span class="landing-component-icon">□</span>
+                    <strong>热区组件</strong>
+                    <span>+</span>
+                  </button>
+                  <button class="landing-component-card" type="button" data-landing-add="button">
+                    <span class="landing-component-icon">➤</span>
+                    <strong>按钮组件</strong>
+                    <span>+</span>
+                  </button>
+                </div>
+
+                <div class="landing-publish-side-panel">
+                  <div class="landing-side-field">
+                    <label for="landingH5BaseFormInput">H5 渲染器基础地址</label>
+                    <input id="landingH5BaseFormInput" placeholder="https://h5.example.com/landing" />
+                  </div>
+                  <div class="landing-side-field">
+                    <label for="landingH5UrlOutput">生成 H5 链接</label>
+                    <div class="landing-url-row">
+                      <input id="landingH5UrlOutput" readonly />
+                      <button id="copyLandingUrlBtn" class="btn btn-light" type="button">复制</button>
+                    </div>
+                  </div>
+                  <div class="landing-side-field">
+                    <label for="landingConfigJsonUrlInput">配置 JSON 文件名</label>
+                    <input id="landingConfigJsonUrlInput" placeholder="可选" readonly />
+                  </div>
+                  <details class="landing-config-preview">
+                    <summary class="landing-config-head">
+                      <strong> JSON 预览</strong>
+                      <button id="copyLandingConfigBtn" class="btn btn-light" type="button">复制 JSON</button>
+                    </summary>
+                    <pre id="landingConfigPreview"></pre>
+                  </details>
+                </div>
+
+                <div class="landing-layer-panel">
+                  <div class="landing-layer-head">
+                    <strong>图层管理</strong>
+                    <label class="landing-check-row">
+                      <input id="landingButtonSafeAreaInput" type="checkbox" checked />
+                      <span>底部安全区</span>
+                    </label>
+                  </div>
+                  <div id="landingLayerList" class="landing-layer-list"></div>
+                </div>
+              </aside>
+
+              <section class="landing-builder-stage">
+                <div class="landing-phone">
+                  <div class="landing-phone-status">
+                    <strong>9:41</strong>
+                    <span></span>
+                    <span></span>
+                    <b></b>
+                  </div>
+                  <div id="landingCanvas" class="landing-phone-canvas"></div>
+                </div>
+              </section>
+
+              <aside class="landing-builder-right">
+                <div class="landing-inspector-head">
+                  <div>
+                    <h4>配置面板</h4>
+                    <p id="landingInspectorSubtitle">请选择一个组件</p>
+                  </div>
+                  <button id="landingDeleteComponentBtn" class="link danger hidden" type="button">删除组件</button>
+                </div>
+
+                <div id="landingImagePanel" class="landing-inspector-section hidden">
+                  <label for="landingBannerUrlInput">图片设置</label>
+                  <div id="landingImageUploadBox" class="landing-upload-box">
+                    <span>⇧</span>
+                    <small>点击或拖拽上传</small>
+                  </div>
+                  <div class="landing-url-row">
+                    <input id="landingBannerUrlInput" placeholder="https://picsum.photos/seed/activity/800/1200" />
+                    <button id="clearLandingImageUrlBtn" class="btn btn-light" type="button">清空</button>
+                  </div>
+                </div>
+
+                <div id="landingHotspotPanel" class="landing-inspector-section hidden">
+                  <label for="landingHotspotIdInput">热区 ID</label>
+                  <input id="landingHotspotIdInput" placeholder="请输入热区 ID" />
+                  <label>热区设置</label>
+                  <div class="landing-field-grid">
+                    <span>X 坐标 (px)</span>
+                    <span>Y 坐标 (px)</span>
+                    <input id="landingHotspotXInput" type="number" min="0" />
+                    <input id="landingHotspotYInput" type="number" min="0" />
+                    <span>宽度 (px)</span>
+                    <span>高度 (px)</span>
+                    <input id="landingHotspotWInput" type="number" min="1" />
+                    <input id="landingHotspotHInput" type="number" min="1" />
+                  </div>
+                  <label for="landingHotspotEventInput">触发事件</label>
+                  <select id="landingHotspotEventInput">
+                    <option value="claim">领课</option>
+                    <option value="jump">跳转链接</option>
+                    <option value="custom">自定义事件</option>
+                  </select>
+                  <div id="landingHotspotSkuField" class="landing-dynamic-field">
+                    <label for="landingHotspotSkuInput">选择 SKU</label>
+                    <select id="landingHotspotSkuInput">
+                      <option value="1">1 国画</option>
+                      <option value="3">3 书法</option>
+                      <option value="4">4 钢琴</option>
+                      <option value="5">5 声乐</option>
+                      <option value="6">6 联营</option>
+                      <option value="7">7 舞蹈瑜伽俱乐部</option>
+                      <option value="8">8 萨克斯</option>
+                      <option value="11">11 养生</option>
+                      <option value="12">12 太极</option>
+                      <option value="13">13 舞蹈</option>
+                      <option value="14">14 朗诵</option>
+                      <option value="16">16 直营</option>
+                      <option value="17">17 商城</option>
+                      <option value="18">18 声乐-月课</option>
+                      <option value="19">19 非洲鼓</option>
+                      <option value="20">20 口琴</option>
+                      <option value="21">21 华彩乐园</option>
+                      <option value="22">22 冥想瑜伽</option>
+                      <option value="23">23 戏曲越剧</option>
+                      <option value="24">24 摄影</option>
+                      <option value="25">25 美妆</option>
+                      <option value="26">26 营养</option>
+                      <option value="27">27 AI技能课</option>
+                      <option value="28">28 自媒体课</option>
+                      <option value="30">30 社团</option>
+                    </select>
+                  </div>
+                  <div id="landingHotspotLinkField" class="landing-dynamic-field hidden">
+                    <label for="landingHotspotLinkInput">跳转链接</label>
+                    <input id="landingHotspotLinkInput" placeholder="请输入要跳转的链接" />
+                  </div>
+                  <div id="landingHotspotJsField" class="landing-dynamic-field hidden">
+                    <label for="landingHotspotBridgeActionInput">桥接事件</label>
+                    <select id="landingHotspotBridgeActionInput">
+                      <option value="showShareDialog">showShareDialog</option>
+                      <option value="commonShare">commonShare</option>
+                      <option value="studyReportShare">studyReportShare</option>
+                      <option value="gotoLastPage">gotoLastPage</option>
+                      <option value="selectImage">selectImage</option>
+                      <option value="shareBtn">shareBtn</option>
+                      <option value="commonParams">commonParams</option>
+                      <option value="wxWorkOpenHelper">wxWorkOpenHelper</option>
+                      <option value="wxWorkOpenHelperWithLeads">wxWorkOpenHelperWithLeads</option>
+                      <option value="shareMiniProgramToFriend">shareMiniProgramToFriend</option>
+                      <option value="nativeRoutePush">nativeRoutePush</option>
+                    </select>
+                    <label for="landingHotspotBridgeParamsInput">传参 JSON</label>
+                    <textarea id="landingHotspotBridgeParamsInput" rows="6" placeholder='例如：{"id":"1","content":"分享文案","lantern":"https://..."}'></textarea>
+                  </div>
+                </div>
+
+                <div id="landingButtonPanel" class="landing-inspector-section hidden">
+                  <label for="landingButtonIdInput">按钮 ID</label>
+                  <input id="landingButtonIdInput" placeholder="请输入按钮 ID" />
+                  <label>按钮模式</label>
+                  <div class="landing-button-mode-grid">
+                    <button type="button" data-landing-button-mode="top">吸顶</button>
+                    <button type="button" data-landing-button-mode="bottom">吸底</button>
+                    <button type="button" data-landing-button-mode="flow">跟随滑动</button>
+                    <button type="button" data-landing-button-mode="fixed">屏幕固定</button>
+                  </div>
+                  <label class="landing-check-row landing-button-float-row">
+                    <input id="landingButtonFloatAboveImageInput" type="checkbox" />
+                    <span>悬浮于图片图层之上</span>
+                  </label>
+                  <label>按钮位置</label>
+                  <div class="landing-field-grid">
+                    <span>X 坐标 (px)</span>
+                    <span>Y 坐标 (px)</span>
+                    <input id="landingButtonXInput" type="number" min="0" />
+                    <input id="landingButtonYInput" type="number" min="0" />
+                    <span>宽度 (px)</span>
+                    <span>高度 (px)</span>
+                    <input id="landingButtonWInput" type="number" min="1" />
+                    <input id="landingButtonHInput" type="number" min="1" />
+                  </div>
+                  <label for="landingButtonTextInput">按钮文案</label>
+                  <input id="landingButtonTextInput" placeholder="按钮" />
+                  <label for="landingButtonImageUrlInput">按钮图片素材 URL</label>
+                  <div class="landing-upload-box landing-button-preview" id="landingButtonImagePreview">
+                    <span>⇧</span>
+                    <small>可配置按钮图片素材</small>
+                  </div>
+                  <div class="landing-url-row">
+                    <input id="landingButtonImageUrlInput" placeholder="https://example.com/button.png" />
+                    <button id="clearLandingButtonImageUrlBtn" class="btn btn-light" type="button">清空</button>
+                  </div>
+                  <label for="landingButtonEventInput">按钮事件</label>
+                  <select id="landingButtonEventInput">
+                    <option value="claim">领课</option>
+                    <option value="jump">跳转链接</option>
+                    <option value="custom">自定义事件</option>
+                  </select>
+                  <div id="landingButtonSkuField" class="landing-dynamic-field">
+                    <label for="landingButtonSkuInput">选择 SKU</label>
+                    <select id="landingButtonSkuInput">
+                      <option value="1">1 国画</option>
+                      <option value="3">3 书法</option>
+                      <option value="4">4 钢琴</option>
+                      <option value="5">5 声乐</option>
+                      <option value="6">6 联营</option>
+                      <option value="7">7 舞蹈瑜伽俱乐部</option>
+                      <option value="8">8 萨克斯</option>
+                      <option value="11">11 养生</option>
+                      <option value="12">12 太极</option>
+                      <option value="13">13 舞蹈</option>
+                      <option value="14">14 朗诵</option>
+                      <option value="16">16 直营</option>
+                      <option value="17">17 商城</option>
+                      <option value="18">18 声乐-月课</option>
+                      <option value="19">19 非洲鼓</option>
+                      <option value="20">20 口琴</option>
+                      <option value="21">21 华彩乐园</option>
+                      <option value="22">22 冥想瑜伽</option>
+                      <option value="23">23 戏曲越剧</option>
+                      <option value="24">24 摄影</option>
+                      <option value="25">25 美妆</option>
+                      <option value="26">26 营养</option>
+                      <option value="27">27 AI技能课</option>
+                      <option value="28">28 自媒体课</option>
+                      <option value="30">30 社团</option>
+                    </select>
+                  </div>
+                  <div id="landingButtonLinkField" class="landing-dynamic-field hidden">
+                    <label for="landingButtonLinkInput">跳转链接</label>
+                    <input id="landingButtonLinkInput" placeholder="请输入要跳转的链接" />
+                  </div>
+                  <div id="landingButtonJsField" class="landing-dynamic-field hidden">
+                    <label for="landingButtonBridgeActionInput">桥接事件</label>
+                    <select id="landingButtonBridgeActionInput">
+                      <option value="showShareDialog">showShareDialog</option>
+                      <option value="commonShare">commonShare</option>
+                      <option value="studyReportShare">studyReportShare</option>
+                      <option value="gotoLastPage">gotoLastPage</option>
+                      <option value="selectImage">selectImage</option>
+                      <option value="shareBtn">shareBtn</option>
+                      <option value="commonParams">commonParams</option>
+                      <option value="wxWorkOpenHelper">wxWorkOpenHelper</option>
+                      <option value="wxWorkOpenHelperWithLeads">wxWorkOpenHelperWithLeads</option>
+                      <option value="shareMiniProgramToFriend">shareMiniProgramToFriend</option>
+                      <option value="nativeRoutePush">nativeRoutePush</option>
+                    </select>
+                    <label for="landingButtonBridgeParamsInput">传参 JSON</label>
+                    <textarea id="landingButtonBridgeParamsInput" rows="6" placeholder='例如：{"id":"1","content":"分享文案","lantern":"https://..."}'></textarea>
+                  </div>
+                  <label for="landingThemeColorInput">按钮主题色</label>
+                  <input id="landingThemeColorInput" type="color" value="#1677ff" />
+                </div>
+
+                <textarea id="landingMaterialUrlsInput" class="hidden" rows="1"></textarea>
+                <textarea id="landingContentInput" class="hidden" rows="1"></textarea>
+                <input id="landingHeroTitleInput" class="hidden" />
+                <input id="landingHeroSubtitleInput" class="hidden" />
+
+                <button id="saveLandingBtn" class="btn btn-primary landing-save-btn" type="button">保存配置</button>
+              </aside>
+            </div>
+          </section>
+        </section>
+
+        <section id="shareMaterialsPage" class="view-page hidden">
+          <div class="overview-grid">
+            <article class="metric-card">
+              <span class="metric-label">当前分类</span>
+              <strong id="shareMaterialMetricTab" class="metric-value">SKU 封面</strong>
+              <span class="metric-sub">通过 tab 切换物料类型</span>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">当前条数</span>
+              <strong id="shareMaterialMetricTotal" class="metric-value">0</strong>
+              <span id="shareMaterialMetricScope" class="metric-sub">全部 SKU</span>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">最近更新</span>
+              <strong id="shareMaterialMetricUpdated" class="metric-value">-</strong>
+              <span class="metric-sub">来自 flexibleConfig</span>
+            </article>
+            <article class="metric-card metric-card-accent">
+              <span class="metric-label">当前视图</span>
+              <strong class="metric-value">作业分享素材</strong>
+              <span id="shareMaterialMetricSummary" class="metric-sub">接口配置</span>
+            </article>
+          </div>
+
+          <section class="panel share-material-panel">
+            <div class="share-material-head">
+              <div>
+                <h3>作业分享素材后台配置页</h3>
+                <p>配置作业分享小程序封面、课程推荐、弹窗图与默认背景素材</p>
+              </div>
+              <div class="share-material-head-actions">
+                <button id="refreshShareMaterialsBtn" class="btn btn-light" type="button">刷新</button>
+                <button id="createShareMaterialBtn" class="btn btn-primary" type="button">新增</button>
+                <button id="saveShareMaterialsPageBtn" class="btn btn-primary share-material-save-main" type="button">保存</button>
+              </div>
+            </div>
+            <div id="shareMaterialStatus" class="share-material-status hidden"></div>
+            <div id="shareMaterialTabs" class="share-material-tabs" role="tablist"></div>
+            <div id="shareMaterialSkuFilterWrap" class="share-material-filter hidden">
+              <label for="shareMaterialSkuFilter">SKU</label>
+              <select id="shareMaterialSkuFilter"></select>
+            </div>
+            <div class="table-wrap">
+              <table class="share-material-table">
+                <thead id="shareMaterialTableHead"></thead>
+                <tbody id="shareMaterialTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <div id="shareMaterialModal" class="modal hidden">
+          <div class="modal-mask"></div>
+          <div class="modal-card share-material-modal-card">
+            <div class="modal-head">
+              <strong id="shareMaterialModalTitle">新增素材</strong>
+              <button id="closeShareMaterialModal" class="btn btn-light" type="button">关闭</button>
+            </div>
+            <div class="share-material-modal-body">
+              <section class="share-material-upload-panel">
+                <div id="shareMaterialUploadBox" class="share-material-upload-box" role="button" tabindex="0">
+                  <div id="shareMaterialPreview" class="share-material-preview-box">
+                    <span>点击或拖拽上传素材</span>
+                  </div>
+                <div class="share-material-upload-copy">
+                  <strong>上传到 OSS</strong>
+                  <span id="shareMaterialUploadHint">支持图片素材，上传后自动回填 URL</span>
+                </div>
+              </div>
+              </section>
+
+              <section class="share-material-form-panel">
+                <div class="share-material-form-title">
+                  <strong>配置内容</strong>
+                  <span>选择 SKU 并确认素材地址</span>
+                </div>
+                <div id="shareMaterialOrderField" class="share-material-modal-field hidden">
+                  <label for="shareMaterialOrderInput">顺序</label>
+                  <input id="shareMaterialOrderInput" type="number" min="1" placeholder="请输入顺序" />
+                </div>
+                <div id="shareMaterialSkuField" class="share-material-modal-field">
+                  <label for="shareMaterialSkuInput">SKU</label>
+                  <select id="shareMaterialSkuInput"></select>
+                </div>
+                <div id="shareMaterialNameField" class="share-material-modal-field hidden">
+                  <label for="shareMaterialNameInput">名称</label>
+                  <input id="shareMaterialNameInput" placeholder="请输入素材名称" />
+                </div>
+                <div id="shareMaterialTypeField" class="share-material-modal-field hidden">
+                  <label for="shareMaterialTypeInput">素材类型</label>
+                  <select id="shareMaterialTypeInput">
+                    <option value="image">图片</option>
+                    <option value="video">视频</option>
+                  </select>
+                </div>
+                <div class="share-material-modal-field share-material-url-field">
+                  <label for="shareMaterialUrlInput">素材 URL</label>
+                  <div class="share-material-url-row">
+                    <input id="shareMaterialUrlInput" placeholder="可直接粘贴 URL，也可本地上传后自动回填" />
+                    <button id="uploadShareMaterialBtn" class="btn btn-light" type="button">本地上传</button>
+                  </div>
+                </div>
+                <div class="share-material-modal-tips">
+                  <strong>保存规则</strong>
+                  <span>SKU 和顺序会按当前分类自动校验；本地上传只负责生成 URL，点击保存后配置才会生效。</span>
+                </div>
+              </section>
+            </div>
+            <div class="share-material-modal-actions">
+              <button id="cancelShareMaterialBtn" class="btn btn-light" type="button">取消</button>
+              <button id="saveShareMaterialBtn" class="btn btn-primary" type="button">确认</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="shareMaterialViewerModal" class="modal hidden">
+          <div class="modal-mask"></div>
+          <div class="modal-card share-material-viewer-card">
+            <div class="modal-head">
+              <strong id="shareMaterialViewerTitle">素材预览</strong>
+              <button id="closeShareMaterialViewer" class="btn btn-light" type="button">关闭</button>
+            </div>
+            <div id="shareMaterialViewerBody" class="share-material-viewer-body"></div>
+          </div>
+        </div>
+
+        <div id="landingCreateModal" class="modal hidden">
+          <div class="modal-mask"></div>
+          <div class="modal-card landing-create-modal-card">
+            <div class="modal-head">
+              <strong>新增落地页</strong>
+              <button id="closeLandingCreateModal" class="btn btn-light" type="button">关闭</button>
+            </div>
+            <div class="landing-create-modal-body">
+              <label for="landingCreateNameInput">落地页名称 <b>*</b></label>
+              <input id="landingCreateNameInput" placeholder="请输入落地页名称，仅内部管理使用" />
+              <label for="landingCreateBusinessInput">落地页业务 <span>（选填）</span></label>
+              <select id="landingCreateBusinessInput">
+                <option value="">请选择业务备注</option>
+                <option value="1">1 国画</option>
+                <option value="3">3 书法</option>
+                <option value="4">4 钢琴</option>
+                <option value="5">5 声乐</option>
+                <option value="6">6 联营</option>
+                <option value="7">7 舞蹈瑜伽俱乐部</option>
+                <option value="8">8 萨克斯</option>
+                <option value="11">11 养生</option>
+                <option value="12">12 太极</option>
+                <option value="13">13 舞蹈</option>
+                <option value="14">14 朗诵</option>
+                <option value="16">16 直营</option>
+                <option value="17">17 商城</option>
+                <option value="18">18 声乐-月课</option>
+                <option value="19">19 非洲鼓</option>
+                <option value="20">20 口琴</option>
+                <option value="21">21 华彩乐园</option>
+                <option value="22">22 冥想瑜伽</option>
+                <option value="23">23 戏曲越剧</option>
+                <option value="24">24 摄影</option>
+                <option value="25">25 美妆</option>
+                <option value="26">26 营养</option>
+                <option value="27">27 AI技能课</option>
+                <option value="28">28 自媒体课</option>
+                <option value="30">30 社团</option>
+              </select>
+              <div class="landing-create-modal-actions">
+                <button id="cancelLandingCreateBtn" class="btn btn-light" type="button">取消</button>
+                <button id="confirmLandingCreateBtn" class="btn btn-primary" type="button">创建并进入编辑页</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="landingPublishModal" class="modal hidden">
+          <div class="modal-mask"></div>
+          <div class="modal-card landing-publish-modal-card">
+            <div class="modal-head">
+              <strong>确认发布落地页</strong>
+              <button id="closeLandingPublishModal" class="btn btn-light" type="button">关闭</button>
+            </div>
+            <div class="landing-publish-modal-body">
+              <p class="landing-publish-tip">确认后会将配置 JSON 上传到 OSS，并使用同一个 H5 页面地址通过参数加载不同配置。</p>
+              <div class="landing-publish-downloads">
+                <button id="downloadLandingHtmlBtn" class="btn btn-light" type="button">下载 HTML</button>
+                <button id="downloadLandingJsonBtn" class="btn btn-light" type="button">下载 JSON</button>
+              </div>
+              <div class="landing-publish-grid">
+                <section>
+                  <div class="landing-publish-code-head">
+                    <strong>HTML</strong>
+                    <span id="landingPublishHtmlName">landing.html</span>
+                  </div>
+                  <pre id="landingPublishHtmlPreview"></pre>
+                </section>
+                <section>
+                  <div class="landing-publish-code-head">
+                    <strong>JSON</strong>
+                    <span id="landingPublishJsonName">config.json</span>
+                  </div>
+                  <pre id="landingPublishJsonPreview"></pre>
+                </section>
+              </div>
+              <div class="landing-publish-result hidden" id="landingPublishResult"></div>
+              <div class="landing-create-modal-actions">
+                <button id="cancelLandingPublishBtn" class="btn btn-light" type="button">取消</button>
+                <button id="confirmLandingPublishBtn" class="btn btn-primary" type="button">确认上传并保存</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <section id="formView" class="panel hidden">
+          <div class="form-head">
+            <h3 id="formTitle">新建人群包规则</h3>
+            <button id="backBtn" class="btn btn-light">返回列表</button>
+          </div>
+          <div class="form-grid">
+            <label>规则 code（英文下划线，30字以内，必填）</label>
+            <input id="ruleCodeInput" />
+            <label>规则名称（30字以内，必填）</label>
+            <input id="ruleNameInput" />
+          </div>
+
+          <div class="switch-row">
+            <strong>条件配置（全部满足 / AND）</strong>
+            <span class="hint-wrap">
+              <span class="hint" tabindex="0" aria-label="所有条件之间是与的逻辑">?</span>
+              <span class="hint-tooltip">所有条件之间是与的逻辑</span>
+            </span>
+            <button id="addConditionBtn" class="btn">新增条件</button>
+            <button id="toggleSqlBtn" class="btn btn-light">我要写SQL</button>
+          </div>
+
+          <div id="conditionList" class="condition-list"></div>
+          <div id="sqlEditorWrap" class="hidden">
+            <textarea id="sqlEditor" rows="9" placeholder="请输入 ClickHouse SQL"></textarea>
+          </div>
+
+          <div class="actions">
+            <button id="saveBtn" class="btn btn-primary">保存</button>
+          </div>
+        </section>
+
+        <section id="h5ActivityPage" class="view-page hidden">
+          <section class="panel h5-activity-panel">
+            <iframe
+              id="h5ActivityFrame"
+              class="h5-activity-frame"
+              title="H5 活动配置"
+              src="./h5-activity-config.html"
+            ></iframe>
+          </section>
+        </section>
+
+        <section id="pianoPracticePage" class="view-page hidden">
+          <section class="panel embedded-tool-panel">
+            <iframe
+              id="pianoPracticeFrame"
+              class="embedded-tool-frame"
+              title="钢琴练习工具"
+              src="./piano-practice-admin/index.html?embed=desktop"
+            ></iframe>
+          </section>
+        </section>
+
+        <section id="pushToolPage" class="view-page hidden">
+          <section class="panel embedded-tool-panel">
+            <iframe
+              id="pushToolFrame"
+              class="embedded-tool-frame"
+              title="Push 发送工具"
+              src="./push-tool/index.html?theme=dark&env=prod&v=202607011620"
+            ></iframe>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <div id="sqlModal" class="modal hidden">
+      <div class="modal-mask"></div>
+      <div class="modal-card">
+        <div class="modal-head">
+          <strong>完整 SQL</strong>
+          <button id="closeSqlModal" class="btn btn-light">关闭</button>
+        </div>
+        <pre id="sqlModalContent" class="sql-full"></pre>
+      </div>
+    </div>
+
+    <div id="feedbackStatusModal" class="modal hidden">
+      <div class="modal-mask"></div>
+      <div class="modal-card feedback-modal-card">
+        <div class="modal-head">
+          <strong>修改反馈状态</strong>
+          <button id="closeFeedbackStatusModal" class="btn btn-light">关闭</button>
+        </div>
+        <div class="feedback-modal-body">
+          <div class="feedback-modal-grid">
+            <div class="feedback-modal-field">
+              <span class="feedback-modal-label">用户 unionId</span>
+              <strong id="feedbackModalUnionId">-</strong>
+            </div>
+            <div class="feedback-modal-field">
+              <span class="feedback-modal-label">版本号</span>
+              <strong id="feedbackModalVersion">-</strong>
+            </div>
+            <div class="feedback-modal-field feedback-modal-field-full">
+              <span class="feedback-modal-label">用户描述</span>
+              <p id="feedbackModalDescription" class="feedback-modal-text">-</p>
+            </div>
+            <div class="feedback-modal-field feedback-modal-field-full">
+              <label class="feedback-modal-label" for="feedbackStatusSelect">解决状态</label>
+              <select id="feedbackStatusSelect"></select>
+            </div>
+            <div class="feedback-modal-field feedback-modal-field-full">
+              <label class="feedback-modal-label" for="feedbackRemarkInput">备注</label>
+              <textarea id="feedbackRemarkInput" rows="4" placeholder="请输入备注"></textarea>
+            </div>
+          </div>
+          <div class="feedback-modal-actions">
+            <button id="saveFeedbackStatusBtn" class="btn btn-primary">保存状态</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="feedbackContentModal" class="modal hidden">
+      <div class="modal-mask"></div>
+      <div class="modal-card feedback-content-modal-card">
+        <div class="modal-head">
+          <strong id="feedbackContentModalTitle">查看内容</strong>
+          <button id="closeFeedbackContentModal" class="btn btn-light">关闭</button>
+        </div>
+        <div class="feedback-content-modal-body">
+          <pre id="feedbackContentModalText" class="feedback-content-modal-text"></pre>
+        </div>
+      </div>
+    </div>
+
+    <div id="feedbackDateModal" class="modal hidden">
+      <div class="modal-mask"></div>
+      <div class="modal-card feedback-date-modal-card">
+        <div class="modal-head">
+          <strong id="feedbackDateModalTitle">选择时间</strong>
+          <button id="closeFeedbackDateModal" class="btn btn-light">关闭</button>
+        </div>
+        <div class="feedback-modal-body">
+          <div class="feedback-modal-grid">
+            <div class="feedback-modal-field">
+              <label class="feedback-modal-label" for="feedbackDateStartInput">开始日期</label>
+              <input id="feedbackDateStartInput" type="date" />
+            </div>
+            <div class="feedback-modal-field">
+              <label class="feedback-modal-label" for="feedbackDateEndInput">结束日期</label>
+              <input id="feedbackDateEndInput" type="date" />
+            </div>
+          </div>
+          <div class="feedback-modal-actions">
+            <button id="saveFeedbackDateBtn" class="btn btn-primary">确认并查询</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <template id="condTpl">
+      <div class="cond-item">
+        <label class="checkbox mini"><input type="checkbox" class="invert" /> 取反</label>
+        <select class="feature"></select>
+        <select class="op"></select>
+        <div class="value-wrap"></div>
+        <button class="btn btn-light del">删除条件</button>
+      </div>
+    </template>
+
+    <script src="./script.js?v=202607011620"></script>
+  </body>
+</html>
