@@ -447,7 +447,7 @@ function Header({ auth }) {
     ["首页", "#top"],
     ["技能", "#skills"],
     ["项目", "#projects"],
-    ...(auth.isAuthenticated ? [["后台", `${basePath}/desktop`]] : []),
+    ...(auth.isAuthenticated ? [["后台", "#/desktop"]] : []),
     ["小作品", "#ai-lab"],
     ["经历", "#timeline"],
     ["问答", "#assistant"],
