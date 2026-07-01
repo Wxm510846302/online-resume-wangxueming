@@ -254,15 +254,36 @@ function useResumeAuth() {
   });
 
   const login = React.useCallback(async (username, password) => {
-    const response = await fetch(resumeLoginApiPath, {
-      method: "POST",
-      headers: { "Content-Type": "application/json;charset=utf-8" },
-      body: JSON.stringify({ username: username.trim(), password }),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok || !body.ok) {
-      return false;
+    let response;
+    try {
+      response = await fetch(resumeLoginApiPath, {
+        method: "POST",
+        headers: { "Content-Type": "application/json;charset=utf-8" },
+        body: JSON.stringify({ username: username.trim(), password }),
+      });
+    } catch {
+      return { ok: false, reason: "network" };
     }
+
+    const contentType = response.headers.get("content-type") || "";
+    const body = contentType.includes("application/json")
+      ? await response.json().catch(() => ({}))
+      : {};
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        return { ok: false, reason: "credentials" };
+      }
+      if (response.status >= 500) {
+        return { ok: false, reason: "service" };
+      }
+      return { ok: false, reason: "request", status: response.status };
+    }
+
+    if (!body.ok) {
+      return { ok: false, reason: "credentials" };
+    }
+
     setIsAuthenticated(true);
     try {
       window.localStorage?.setItem(AUTH_STORAGE_KEY, JSON.stringify({
@@ -272,7 +293,7 @@ function useResumeAuth() {
     } catch {
       // Login still works for the current session if storage is unavailable.
     }
-    return true;
+    return { ok: true };
   }, []);
 
   const logout = React.useCallback(() => {
@@ -326,13 +347,19 @@ function LoginDialog({ auth, onClose }) {
     event.preventDefault();
     setSubmitting(true);
     try {
-      const success = await auth.login(username, password);
-      if (success) {
+      const result = await auth.login(username, password);
+      if (result.ok) {
         setError("");
         onClose();
         return;
       }
-      setError("账号或密码不正确");
+      const errorMessages = {
+        credentials: "账号或密码不正确",
+        network: "无法连接登录服务，请检查网络后重试",
+        service: "登录服务暂不可用，请确认 uniCloud resume-login 已部署",
+        request: `登录接口异常（HTTP ${result.status || "未知"}），请稍后重试`,
+      };
+      setError(errorMessages[result.reason] || "登录校验失败，请稍后重试");
     } catch {
       setError("登录校验失败，请稍后重试");
     } finally {

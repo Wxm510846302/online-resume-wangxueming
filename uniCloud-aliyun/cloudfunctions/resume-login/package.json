@@ -1,0 +1,12 @@
+{
+  "name": "resume-login",
+  "dependencies": {},
+  "cloudfunction-config": {
+    "concurrency": 1,
+    "memorySize": 256,
+    "path": "/resume-login",
+    "timeout": 10,
+    "triggers": [],
+    "runtime": "Nodejs18"
+  }
+}
