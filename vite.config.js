@@ -2,7 +2,8 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { Readable } from "node:stream";
 import { handleCozeChat } from "./server/cozeProxy.js";
-import { handleResumeLogin } from "./server/resumeAuth.js";
+
+const resumeLoginCloudApiPath = "https://fc-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/resume-login";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -30,7 +31,15 @@ function resumeLoginDevApi() {
     configureServer(server) {
       server.middlewares.use("/api/resume-login", async (req, res) => {
         try {
-          const response = await handleResumeLogin(toWebRequest(req, server));
+          const request = toWebRequest(req, server);
+          const response = await fetch(resumeLoginCloudApiPath, {
+            method: request.method,
+            headers: {
+              "content-type": request.headers.get("content-type") || "application/json;charset=utf-8",
+              origin: `${server.config.server.https ? "https" : "http"}://${req.headers.host || "localhost"}`,
+            },
+            body: request.method === "GET" || request.method === "HEAD" ? undefined : await request.text(),
+          });
           sendWebResponse(response, res);
         } catch (error) {
           res.statusCode = 500;

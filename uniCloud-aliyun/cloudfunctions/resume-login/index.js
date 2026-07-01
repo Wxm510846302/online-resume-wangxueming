@@ -93,10 +93,16 @@ function response(statusCode, body, origin) {
 }
 
 function getAllowedOrigin(origin) {
-  const configured = getConfigValue("ALLOWED_ORIGIN") || DEFAULT_ALLOWED_ORIGIN;
-  if (!origin) return configured;
-  if (origin === configured || origin.startsWith("http://localhost:")) return origin;
-  return configured;
+  const allowedOrigins = (getConfigValue("ALLOWED_ORIGIN") || DEFAULT_ALLOWED_ORIGIN)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const fallback = allowedOrigins[0] || DEFAULT_ALLOWED_ORIGIN;
+  if (!origin) return fallback;
+  if (allowedOrigins.includes(origin) || /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)) {
+    return origin;
+  }
+  return fallback;
 }
 
 function getHeader(event, name) {

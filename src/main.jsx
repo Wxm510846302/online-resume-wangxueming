@@ -133,6 +133,675 @@ const aiResearchDocs = [
   },
 ];
 
+const agentQuestions = [
+  {
+    slug: "stable-json-output",
+    question: "大模型怎么稳定输出 JSON？",
+    category: "结构化输出",
+    summary: "靠 schema 约束、低温度、失败重试、解析校验和业务兜底，而不是只在 prompt 里说“请输出 JSON”。",
+    answer: {
+      core:
+        "稳定 JSON 的关键是把“自然语言生成”变成“受约束的数据生成”。我会优先使用模型或 SDK 支持的 structured outputs / JSON schema；如果平台不支持，就在系统提示词里给出字段、类型、枚举、必填项和禁止额外文本，并在服务端做 JSON.parse、schema validate、自动修复或重试。",
+      practices: [
+        "字段层面写清楚类型、枚举、是否可空、数组长度和默认值，不让模型自由发挥字段名。",
+        "温度设低，避免同一个字段今天叫 title、明天叫 name。",
+        "服务端只信解析后的对象，不信模型原文；解析失败要重试或降级。",
+        "对金额、日期、ID、布尔值这类字段做二次校验，避免字符串看起来对但业务不可用。",
+      ],
+      pitfalls: [
+        "只靠 prompt 约束不够，模型仍可能输出说明文字、Markdown 代码块或尾随逗号。",
+        "不要让模型直接决定数据库写入，必须经过 schema 和权限校验。",
+      ],
+      interview:
+        "我会回答：稳定 JSON 不是 prompt 技巧，而是协议设计。模型负责生成候选结构，服务端负责校验、修复、重试和兜底。上线时我会记录解析失败率、字段缺失率和重试次数，用这些指标判断结构化输出是否稳定。",
+      diagram: "json",
+    },
+  },
+  {
+    slug: "claude-rag-vector-search",
+    question: "Claude 为何不一定依赖 RAG / 向量检索？",
+    category: "RAG",
+    summary: "更准确的说法不是 Claude 不用 RAG，而是长上下文模型在某些场景可以先直接读上下文，RAG 仍适合大规模知识库和权限过滤。",
+    answer: {
+      core:
+        "Claude 这类长上下文模型可以一次读入较长材料，所以在文档数量少、上下文可控、问题需要跨段推理时，不一定先做向量检索。但这不等于不用 RAG。RAG 的价值在于大规模知识库召回、权限隔离、增量更新、成本控制和可追溯引用。Code 模式也是类似逻辑：它不是不用 RAG，而是优先用代码搜索、文件读取、符号定位、git diff、终端日志和测试结果获取精确上下文。",
+      practices: [
+        "文档少且用户明确上传了材料：直接放进上下文，减少检索误召回。",
+        "知识库很大、权限复杂、频繁更新：使用 RAG，先召回再生成。",
+        "对答案可追溯要求高：RAG 返回来源片段，回答必须引用证据。",
+        "复杂任务可混合：先检索候选资料，再让长上下文模型做综合推理。",
+        "代码任务优先用 grep/rg、AST/符号索引、调用链、测试输出和真实文件内容，因为代码需要精确到路径、函数名、参数和报错行。",
+      ],
+      pitfalls: [
+        "不要说 Claude 不需要 RAG；准确表述是“不是所有场景都需要向量检索”。",
+        "长上下文不等于会自动找到正确证据，材料过多仍会稀释注意力和增加成本。",
+        "不要把 Code 模式理解成纯聊天模型。它和普通问答最大的区别是能读写工作区、运行命令、验证结果；向量检索只是可选的上下文来源之一。",
+      ],
+      interview:
+        "我会说：RAG 是工程策略，不是模型信仰。是否使用 RAG 取决于知识规模、权限、更新频率、成本和可追溯要求。Claude 长上下文让部分场景可以简化检索，但企业知识库通常仍需要 RAG 或混合检索。Code 模式下也不是不用 RAG，而是优先使用更精确的工程工具，比如搜索仓库、读文件、看调用链、跑测试和分析日志；当跨仓库、跨文档或需要历史知识时，再引入 RAG、全文搜索或项目记忆。",
+      diagram: "rag",
+    },
+  },
+  {
+    slug: "llm-hallucination",
+    question: "大模型为什么会有幻觉？",
+    category: "可靠性",
+    summary: "因为模型是在预测最可能的文本，不是数据库查询；缺少证据、问题模糊、训练噪声和上下文冲突都会诱发幻觉。",
+    answer: {
+      core:
+        "大模型的本质是根据上下文预测下一个 token。它没有天然的事实数据库，也不会自动知道自己不知道。当问题缺证据、上下文不完整、资料互相矛盾，或者用户要求它必须给出答案时，模型就可能生成听起来合理但事实错误的内容。",
+      practices: [
+        "高风险事实必须接检索、数据库、工具或引用来源，不让模型凭空回答。",
+        "系统提示词允许模型说不知道，并要求区分事实、推断和建议。",
+        "关键字段走工具查询，例如订单状态、价格、排期、用户信息。",
+        "输出后做事实校验、规则校验或人工审核，尤其是医疗、法律、财务内容。",
+      ],
+      pitfalls: [
+        "温度调低只能减少随机性，不能根治事实错误。",
+        "模型语气自信不代表答案正确。",
+      ],
+      interview:
+        "我会解释：幻觉不是模型坏了，而是生成式模型的默认风险。工程上要把事实型问题交给数据源，把推理型问题交给模型，并通过引用、校验和拒答策略控制风险。",
+      diagram: "grounding",
+    },
+  },
+  {
+    slug: "agent-memory-management",
+    question: "Agent 如何做记忆管理？",
+    category: "记忆",
+    summary: "记忆要分短期上下文、会话摘要、长期偏好、任务状态和可检索知识，不能把所有聊天记录无限塞进 prompt。",
+    answer: {
+      core:
+        "Agent 记忆管理要先分类：短期记忆放当前任务上下文；会话记忆保存阶段性摘要；长期记忆保存稳定偏好和事实；知识记忆走文档库/RAG；任务记忆记录待办、工具结果和决策。不同记忆的生命周期、权限和写入条件都不一样。",
+      practices: [
+        "每轮对话只带当前任务必要上下文，避免 prompt 被旧信息污染。",
+        "长对话定期摘要，保留决策和约束，丢弃寒暄和重复内容。",
+        "长期记忆必须有写入门槛，例如用户明确确认、重复出现或对未来任务稳定有用。",
+        "敏感信息不进长期记忆，或者加密、脱敏、可删除。",
+      ],
+      pitfalls: [
+        "把完整聊天历史都当记忆，会导致成本高、冲突多、模型抓不住重点。",
+        "未经用户确认保存偏好，容易造成隐私和体验问题。",
+      ],
+      interview:
+        "我会回答：记忆不是越多越好，而是要分层、可过期、可审计。Agent 真正需要的是当前目标、关键约束、已验证事实和下一步状态，而不是所有历史文本。",
+      diagram: "memory",
+    },
+  },
+  {
+    slug: "tool-calling-design",
+    question: "Agent 工具调用应该怎么设计？",
+    category: "工具调用",
+    summary: "工具要有清晰 schema、权限边界、幂等设计、超时重试和结果校验，避免模型把工具当万能函数。",
+    answer: {
+      core:
+        "工具调用的关键是把模型的意图转成可控的系统操作。每个工具要定义输入 schema、输出 schema、权限、超时、错误码和副作用。读操作可以自动执行，写操作、支付、发送消息、删除数据等必须有确认或权限控制。",
+      practices: [
+        "工具名和描述要具体，避免模型误选。",
+        "输入参数尽量结构化，少用自由文本。",
+        "工具结果返回可供模型理解的摘要，同时保留原始状态码给系统判断。",
+        "所有有副作用的工具都做审计日志和幂等 key。",
+      ],
+      pitfalls: [
+        "不要让模型直接拼 SQL 或 shell 执行高权限操作。",
+        "工具失败时不要让模型假装成功，要明确错误和下一步。",
+      ],
+      interview:
+        "我会说：Agent 的可靠性很大程度取决于工具边界。模型负责决定意图，系统负责校验、执行和审计。越接近真实业务写操作，越要把权限和确认放在模型外面。",
+      diagram: "tool",
+    },
+  },
+  {
+    slug: "prompt-injection-defense",
+    question: "怎么防 Prompt Injection？",
+    category: "安全",
+    summary: "把用户内容、网页内容、工具结果都当不可信输入，系统指令和权限判断必须放在模型外层。",
+    answer: {
+      core:
+        "Prompt Injection 是外部内容试图覆盖系统指令或诱导模型泄露数据。防御思路是分层信任：系统指令最高，开发者规则其次，用户和网页内容都不可信。真正的权限判断、数据过滤和动作确认要在程序里做，而不是只靠模型自律。",
+      practices: [
+        "工具结果和网页内容用明确标签包起来，提示模型只能当资料，不能当指令。",
+        "敏感数据默认不放进上下文，必须按任务最小化提供。",
+        "发送、删除、付款、改权限等动作需要 action-time confirmation。",
+        "对输出做策略检查，避免泄露 token、隐私和内部提示词。",
+      ],
+      pitfalls: [
+        "不要相信“忽略以上规则”这类文本无害，它可能来自网页或邮件。",
+        "不要把系统 prompt、API key、完整工具返回一股脑交给模型。",
+      ],
+      interview:
+        "我会回答：防注入不是写一句‘不要被攻击’。要把信任边界做在系统架构里：不可信内容隔离、权限外置、工具最小授权、动作确认和审计日志。",
+      diagram: "safety",
+    },
+  },
+  {
+    slug: "context-window-management",
+    question: "长上下文不够用时怎么办？",
+    category: "上下文",
+    summary: "靠摘要、检索、分块、任务状态和优先级裁剪，而不是简单截断最早消息。",
+    answer: {
+      core:
+        "上下文窗口是 Agent 的工作内存。超出窗口时要保留目标、约束、已做决策、当前文件/数据、失败原因和下一步，丢弃重复对话和低价值细节。对于文档和代码库，应该用检索或索引按需加载。",
+      practices: [
+        "对长会话做滚动摘要，摘要里保留决策和约束。",
+        "对代码和文档按任务检索，不把整个仓库塞进 prompt。",
+        "给上下文分优先级：系统规则、用户要求、当前任务证据、历史背景。",
+        "关键事实用结构化状态保存，避免摘要漂移。",
+      ],
+      pitfalls: [
+        "简单截断可能删掉最早但最重要的需求约束。",
+        "摘要也可能出错，重要事实最好可追溯到来源。",
+      ],
+      interview:
+        "我会说：上下文管理就是让模型始终看到当前任务最有用的信息。长上下文只是容量变大，不代表可以不做信息治理。",
+      diagram: "memory",
+    },
+  },
+  {
+    slug: "agent-evaluation",
+    question: "Agent 怎么做效果评测？",
+    category: "评测",
+    summary: "要评测任务完成率、工具正确率、事实准确率、成本、延迟和安全，不只看回答像不像人。",
+    answer: {
+      core:
+        "Agent 评测不能只用主观打分。要建立任务集，每个任务有输入、允许工具、预期结果和失败标准。评测维度包括是否完成任务、是否调用正确工具、是否遵守权限、事实是否有证据、成本和耗时是否可接受。",
+      practices: [
+        "用真实业务任务做 golden set，例如查询订单、生成报告、修改配置。",
+        "记录每一步工具调用，评估参数是否正确。",
+        "对高风险任务做人工复核和回归测试。",
+        "上线后监控失败率、人工接管率、平均成本和用户纠错率。",
+      ],
+      pitfalls: [
+        "只看模型回答分数，容易忽略工具误调用和副作用。",
+        "评测集太简单，会导致 demo 很好、生产很差。",
+      ],
+      interview:
+        "我会回答：Agent 评测要像测业务系统一样测闭环结果。模型回答只是中间过程，最终要看任务是否正确、安全、可控地完成。",
+      diagram: "eval",
+    },
+  },
+  {
+    slug: "multi-agent-collaboration",
+    question: "多 Agent 协作怎么设计？",
+    category: "多 Agent",
+    summary: "先定义角色、输入输出、共享状态和仲裁机制，不要让多个 Agent 随机聊天。",
+    answer: {
+      core:
+        "多 Agent 适合把复杂任务拆给不同角色，例如规划、检索、实现、审查、测试。但它需要清晰协议：谁负责决策，谁负责执行，输出格式是什么，共享哪些状态，冲突如何仲裁。否则多个 Agent 会互相重复、互相误导。",
+      practices: [
+        "任务拆分要有 disjoint ownership，避免多人改同一个文件或同一段结论。",
+        "子 Agent 输出要结构化：发现、证据、风险、建议。",
+        "主 Agent 负责整合和最终责任，不把决策完全外包。",
+        "并行任务适合信息收集、审核、独立模块实现。",
+      ],
+      pitfalls: [
+        "多 Agent 不等于更聪明，可能只是更贵、更慢、更难控。",
+        "没有共享事实源时，不同 Agent 会产生互相冲突的结论。",
+      ],
+      interview:
+        "我会说：多 Agent 的核心是工程管理，不是堆模型数量。要像团队协作一样定义角色、边界、交付物和审查机制。",
+      diagram: "agent",
+    },
+  },
+  {
+    slug: "agent-cost-control",
+    question: "Agent 成本怎么控制？",
+    category: "成本",
+    summary: "通过模型分级、缓存、检索裁剪、批处理、超时控制和工具优先，避免所有任务都用最大模型。",
+    answer: {
+      core:
+        "Agent 成本来自 token、模型档位、工具调用、重试和长链路延迟。控制成本要先分任务：简单分类、格式化、路由用小模型或规则；复杂推理用强模型；事实查询优先工具和缓存。",
+      practices: [
+        "对 prompt 和上下文做裁剪，减少无效历史。",
+        "相同输入或稳定知识结果做缓存。",
+        "设置最大步数、最大重试和超时。",
+        "监控单任务成本和高成本异常链路。",
+      ],
+      pitfalls: [
+        "只压低模型价格可能导致失败率上升，反而因为重试更贵。",
+        "把所有历史都放进上下文，是最常见的隐性成本浪费。",
+      ],
+      interview:
+        "我会回答：成本优化不是简单换便宜模型，而是任务路由、上下文治理、缓存和失败控制的组合。最终看单位成功任务成本，而不是单次调用价格。",
+      diagram: "eval",
+    },
+  },
+  {
+    slug: "agent-state-machine",
+    question: "Agent 为什么需要状态机？",
+    category: "架构",
+    summary: "状态机能约束 Agent 当前能做什么、下一步去哪、失败怎么恢复，避免无限循环和乱调用工具。",
+    answer: {
+      core:
+        "真实业务 Agent 不是每轮都自由生成，而是处在明确状态里：收集信息、确认意图、调用工具、等待结果、需要人工确认、完成或失败。状态机让系统知道当前允许哪些动作，也方便断点续跑和错误恢复。",
+      practices: [
+        "为每个状态定义允许工具和退出条件。",
+        "失败状态要保存错误原因和可恢复动作。",
+        "长任务保存 checkpoint，避免重启后丢失进度。",
+        "用户确认状态必须显式等待，不让模型自动越权。",
+      ],
+      pitfalls: [
+        "没有状态机的 Agent 容易重复问问题、重复调工具或忘记已经完成的步骤。",
+        "状态太细也会复杂，应该围绕业务关键节点设计。",
+      ],
+      interview:
+        "我会说：状态机是把 Agent 从聊天机器人变成业务系统的关键。模型可以灵活推理，但业务流程必须可控、可恢复、可审计。",
+      diagram: "agent",
+    },
+  },
+  {
+    slug: "human-in-the-loop",
+    question: "哪些场景必须 Human-in-the-loop？",
+    category: "安全",
+    summary: "有外部副作用、高金额、高风险、低置信度或涉及隐私权限时，需要人工确认或审核。",
+    answer: {
+      core:
+        "Human-in-the-loop 不是不自动化，而是在关键节点让人确认。典型场景包括发送消息、付款、删除数据、修改权限、提交合同、医疗法律建议、高金额订单和模型低置信度判断。",
+      practices: [
+        "读操作默认自动，写操作按风险分级确认。",
+        "确认页面展示模型将执行什么、影响谁、数据来源是什么。",
+        "人工修改后的结果回写为反馈，用于后续评测和改进。",
+        "高风险动作保留审计记录。",
+      ],
+      pitfalls: [
+        "确认不能只问“是否继续”，要展示具体动作和数据。",
+        "所有步骤都人工确认会失去自动化价值，需要按风险分级。",
+      ],
+      interview:
+        "我会回答：Agent 的自动化边界取决于风险。低风险让它自动做，高风险让它准备方案并等待人确认，这样既有效率也可控。",
+      diagram: "safety",
+    },
+  },
+  {
+    slug: "streaming-user-experience",
+    question: "Agent 流式输出如何设计体验？",
+    category: "体验",
+    summary: "流式输出要让用户知道系统在做什么，同时不能把未验证内容当最终结果。",
+    answer: {
+      core:
+        "流式体验不只是逐字显示。Agent 做长任务时，用户需要看到阶段状态：正在理解问题、检索资料、调用工具、生成答案、等待确认。对于工具结果和最终结论，最好分区展示，避免用户把中间草稿当事实。",
+      practices: [
+        "展示步骤状态和进度，而不是只转圈。",
+        "工具调用期间保留 loading，避免用户误以为点击无效。",
+        "最终答案和中间思考/草稿分开。",
+        "失败时给可重试动作和已完成部分。",
+      ],
+      pitfalls: [
+        "逐字输出可能让错误内容先出现在屏幕上，要考虑敏感场景的延迟展示。",
+        "只显示 loading 不显示阶段，会让用户不信任系统。",
+      ],
+      interview:
+        "我会说：Agent 体验设计的目标是可预期。用户不一定需要看见内部推理，但需要知道现在执行到哪一步、是否可取消、失败后怎么恢复。",
+      diagram: "agent",
+    },
+  },
+  {
+    slug: "agent-observability",
+    question: "Agent 如何做可观测性？",
+    category: "可观测性",
+    summary: "要记录输入、路由、上下文摘要、工具调用、模型版本、成本、延迟、错误和最终结果。",
+    answer: {
+      core:
+        "Agent 出错时不能只看最终回答。可观测性要覆盖整条链路：用户输入、选择了哪个模型、带了哪些上下文、调用了哪些工具、工具参数和结果、每步耗时、token 成本、失败原因和最终状态。",
+      practices: [
+        "每个任务生成 traceId，贯穿模型调用和工具调用。",
+        "敏感数据脱敏后再写日志。",
+        "聚合指标包括成功率、工具失败率、重试率、平均成本和人工接管率。",
+        "保留可回放样本，用于复盘和回归测试。",
+      ],
+      pitfalls: [
+        "日志里不能存 API key、完整个人隐私或未脱敏业务数据。",
+        "只记录最终文本，无法定位是检索错、工具错还是模型错。",
+      ],
+      interview:
+        "我会回答：Agent 可观测性要像分布式系统 trace 一样做。没有 trace，就无法解释为什么它做错，也无法稳定迭代。",
+      diagram: "eval",
+    },
+  },
+  {
+    slug: "rag-chunking",
+    question: "RAG 文档怎么切分更合理？",
+    category: "RAG",
+    summary: "按语义和结构切分，保留标题、层级、来源和相邻上下文，而不是固定每 500 字切一刀。",
+    answer: {
+      core:
+        "RAG 切分的目标是让召回片段既完整又不过长。技术文档适合按标题、段落、代码块和表格切；政策/合同适合按条款切；FAQ 适合问答成对切。每个 chunk 要带来源、标题路径、更新时间和权限信息。",
+      practices: [
+        "chunk 太小会丢上下文，太大会召回噪声。",
+        "保留标题路径，例如“登录 > OAuth > Token 刷新”。",
+        "对代码、表格、列表不要粗暴截断。",
+        "用 overlap 或 parent-child chunk 保留上下文。",
+      ],
+      pitfalls: [
+        "只用向量相似度可能漏掉关键词精确匹配，最好混合 BM25/关键词。",
+        "没有权限过滤的 RAG 会造成数据泄露。",
+      ],
+      interview:
+        "我会说：RAG 质量很大程度取决于知识工程。切分、元数据、权限和混合检索做好，模型才能回答得准。",
+      diagram: "rag",
+    },
+  },
+  {
+    slug: "function-calling-vs-agent",
+    question: "Function Calling 和 Agent 有什么区别？",
+    category: "架构",
+    summary: "Function Calling 是单步工具选择能力，Agent 是围绕目标进行多步规划、执行、观察和修正的系统。",
+    answer: {
+      core:
+        "Function Calling 通常是一轮对话中让模型选择一个函数并填参数。Agent 则更像一个循环：理解目标、规划步骤、调用工具、观察结果、修正计划，直到完成或失败。Agent 可以包含多次 function calling。",
+      practices: [
+        "简单任务用 function calling，例如查天气、查订单。",
+        "多步骤任务用 Agent，例如生成报告、调试问题、自动整理数据。",
+        "Agent 要有最大步数、状态机和失败处理。",
+        "不要为了包装概念，把所有工具调用都叫 Agent。",
+      ],
+      pitfalls: [
+        "没有目标循环和状态管理，只有函数调用，不算真正 Agent。",
+        "Agent 自主性越高，越需要权限和观测。",
+      ],
+      interview:
+        "我会回答：Function Calling 是能力，Agent 是系统。前者解决怎么调用工具，后者解决围绕目标如何持续决策和执行。",
+      diagram: "tool",
+    },
+  },
+  {
+    slug: "model-routing",
+    question: "多模型路由怎么做？",
+    category: "模型路由",
+    summary: "按任务难度、风险、成本、延迟和上下文长度选择模型，而不是固定所有请求走一个模型。",
+    answer: {
+      core:
+        "多模型路由的目标是让合适任务用合适模型。简单分类、抽取、格式化可以用低成本模型；复杂推理、代码修改、长文综合用强模型；安全审核可以用专门规则或审核模型；语音/图像走多模态模型。",
+      practices: [
+        "先做任务分类，再选择模型和工具。",
+        "低置信度或失败重试时升级模型。",
+        "记录每类任务的成功率和成本，动态调整路由。",
+        "关键任务避免盲目降级模型。",
+      ],
+      pitfalls: [
+        "只按价格路由会导致质量不稳定。",
+        "模型切换后输出格式可能变化，需要统一 schema。",
+      ],
+      interview:
+        "我会说：模型路由本质是成本、质量和延迟的平衡。工程上要看单位成功任务成本，而不是单次调用价格。",
+      diagram: "agent",
+    },
+  },
+  {
+    slug: "agent-cache",
+    question: "Agent 哪些内容适合缓存？",
+    category: "缓存",
+    summary: "稳定、可复用、无权限差异的结果适合缓存；个性化、敏感、实时数据要谨慎。",
+    answer: {
+      core:
+        "Agent 缓存可以分 prompt 缓存、检索结果缓存、工具结果缓存、模型回答缓存和中间摘要缓存。缓存能降成本和延迟，但必须处理权限、过期时间和数据实时性。",
+      practices: [
+        "公共文档检索结果、静态 FAQ、分类结果适合缓存。",
+        "订单、余额、权限、个人信息不应长期缓存，或必须按用户隔离。",
+        "缓存 key 要包含模型版本、prompt 版本、知识库版本和用户权限。",
+        "缓存命中后仍可做轻量校验。",
+      ],
+      pitfalls: [
+        "缓存未带权限维度，可能把 A 用户数据给 B 用户。",
+        "知识库更新后缓存不失效，会回答旧内容。",
+      ],
+      interview:
+        "我会回答：缓存是 Agent 成本优化的重要手段，但权限和时效是底线。缓存策略必须和业务数据类型绑定。",
+      diagram: "eval",
+    },
+  },
+  {
+    slug: "agent-failure-recovery",
+    question: "Agent 失败后怎么恢复？",
+    category: "可靠性",
+    summary: "要区分模型失败、工具失败、权限失败、业务失败，并提供重试、降级、人工接管和断点续跑。",
+    answer: {
+      core:
+        "Agent 失败不是一个 error 就结束。要先分类：模型输出无效、工具超时、权限不足、业务规则不允许、外部服务失败、用户信息不完整。不同失败对应不同恢复策略。",
+      practices: [
+        "模型输出格式错：重新生成或修复 JSON。",
+        "工具超时：指数退避重试或切换备用服务。",
+        "权限不足：请求授权或转人工。",
+        "长任务失败：从 checkpoint 续跑，不重做所有步骤。",
+      ],
+      pitfalls: [
+        "无限重试会烧成本，还可能重复执行副作用。",
+        "失败信息不具体，用户无法知道下一步该做什么。",
+      ],
+      interview:
+        "我会说：可靠 Agent 一定要能失败得明白。用户看到的不是崩溃，而是当前失败原因、已完成部分和可选恢复动作。",
+      diagram: "agent",
+    },
+  },
+  {
+    slug: "agent-permissions",
+    question: "Agent 权限怎么设计？",
+    category: "安全",
+    summary: "用最小权限、按动作授权、按数据域过滤，并对高风险操作做确认和审计。",
+    answer: {
+      core:
+        "Agent 权限不能只按用户登录态判断，还要按工具、数据域和动作类型判断。读客户列表、改订单状态、发消息、删除文件是完全不同风险。系统应该在模型外部做 RBAC/ABAC 和工具授权。",
+      practices: [
+        "每个工具声明所需权限和副作用等级。",
+        "按用户身份过滤可访问数据，不把不可见数据放进上下文。",
+        "高风险写操作需要二次确认。",
+        "保留谁在什么时候让 Agent 做了什么的审计日志。",
+      ],
+      pitfalls: [
+        "不要让模型自己判断用户有没有权限。",
+        "不要因为 Agent 是内部工具就给全库权限。",
+      ],
+      interview:
+        "我会回答：权限必须在确定性系统里执行，模型只能提出动作建议。这样才能避免越权访问和误操作。",
+      diagram: "safety",
+    },
+  },
+  {
+    slug: "agent-productization",
+    question: "Agent 从 Demo 到生产要补哪些能力？",
+    category: "产品化",
+    summary: "要补权限、评测、观测、成本、降级、错误恢复、数据治理和运营后台，不只是接上模型 API。",
+    answer: {
+      core:
+        "Agent Demo 通常只证明模型能回答，生产系统要证明它能稳定、安全、低成本地完成任务。需要补齐身份权限、工具治理、日志追踪、评测集、人工接管、灰度发布、成本监控和用户反馈闭环。",
+      practices: [
+        "先定义可完成的窄任务，不要一开始做万能助手。",
+        "建立失败样本库和回归评测。",
+        "上线前做灰度和人工接管机制。",
+        "运营后台要能看任务记录、失败原因和成本。",
+      ],
+      pitfalls: [
+        "只做聊天框很容易 Demo 好看，生产不可控。",
+        "没有评测和日志，后续无法迭代。",
+      ],
+      interview:
+        "我会说：Agent 产品化的重点不是模型接入，而是把它纳入软件工程体系。能观测、能控制、能评测、能恢复，才算可上线。",
+      diagram: "eval",
+    },
+  },
+  {
+    slug: "nature-skill-agent-workflow",
+    question: "Nature / 学术写作 Skill 如何做成 Agent 工作流？",
+    category: "Skill",
+    summary: "把检索、阅读、引用、图表、润色和审稿拆成可审计步骤，避免模型凭空写论文。",
+    answer: {
+      core:
+        "Nature 类 skill 不能让模型直接编论文，而要把学术任务拆成工作流：检索真实文献、筛选证据、读取原文、提取方法和结论、生成引用、绘制图表、写作润色、审稿检查。每一步都要保留来源和证据。",
+      practices: [
+        "文献检索要记录数据库、关键词、筛选标准和排除理由。",
+        "引用必须来自真实论文，不允许模型编 DOI。",
+        "结果、方法、局限要区分清楚，避免过度结论。",
+        "润色阶段只改表达，不改科学事实。",
+      ],
+      pitfalls: [
+        "学术内容最怕幻觉引用和夸大结论。",
+        "没有证据链的漂亮文字不能用于论文或投稿。",
+      ],
+      interview:
+        "我会回答：Nature skill 的价值是把严谨流程工具化。模型可以辅助阅读和表达，但事实、引用和数据必须可追溯。",
+      diagram: "agent",
+    },
+  },
+  {
+    slug: "agent-data-privacy",
+    question: "Agent 如何处理隐私和敏感数据？",
+    category: "安全",
+    summary: "最小化上下文、脱敏、权限过滤、日志治理和数据保留策略缺一不可。",
+    answer: {
+      core:
+        "Agent 很容易把用户输入、工具结果和日志串起来，所以隐私设计要前置。原则是最小化：模型只拿完成任务所需的数据；敏感字段尽量脱敏；日志只记录必要信息；长期记忆必须可删除。",
+      practices: [
+        "手机号、邮箱、地址、身份证、token 等进入模型前脱敏或不传。",
+        "按用户权限过滤检索结果和工具返回。",
+        "日志分级保存，敏感数据加密或不落盘。",
+        "提供记忆查看、删除和关闭能力。",
+      ],
+      pitfalls: [
+        "把完整数据库记录交给模型再让它自己过滤，是错误做法。",
+        "调试日志常常成为隐私泄露源。",
+      ],
+      interview:
+        "我会说：隐私不是最后加一个过滤器，而是从上下文构造、工具返回、日志和记忆全链路控制。",
+      diagram: "safety",
+    },
+  },
+  {
+    slug: "agent-planning",
+    question: "Agent 规划能力应该怎么约束？",
+    category: "规划",
+    summary: "规划要短周期、可验证、可中断，避免一次生成超长计划后盲目执行。",
+    answer: {
+      core:
+        "Agent 规划不是让模型写一大串步骤然后一直执行。更稳的方式是短计划：先列 2-5 步，执行一步，观察结果，再更新计划。每一步都要有完成条件和失败条件。",
+      practices: [
+        "复杂任务先让模型给计划，但执行前由系统或用户确认关键步骤。",
+        "每步执行后检查结果是否满足条件。",
+        "计划中包含工具调用、人工确认和停止条件。",
+        "长期任务保存计划状态，支持暂停和恢复。",
+      ],
+      pitfalls: [
+        "长计划容易在中途偏离现实，尤其是工具结果和预期不一致时。",
+        "没有停止条件会导致循环调用。",
+      ],
+      interview:
+        "我会回答：Agent 规划要像敏捷迭代，短周期验证、持续修正，而不是一次性幻想完整路线。",
+      diagram: "agent",
+    },
+  },
+  {
+    slug: "agent-frontend-integration",
+    question: "前端接 Agent 要注意什么？",
+    category: "前端集成",
+    summary: "前端要处理流式状态、取消、重试、权限提示、长任务进度和错误恢复。",
+    answer: {
+      core:
+        "前端接 Agent 不只是放一个聊天框。需要展示任务阶段、流式内容、工具调用状态、可取消按钮、重试入口、权限确认弹窗和历史记录。长任务要让用户知道系统在做什么。",
+      practices: [
+        "流式输出时区分草稿、工具状态和最终答案。",
+        "支持 AbortController 取消长请求。",
+        "错误提示要给恢复动作，例如重试、修改输入、联系人工。",
+        "敏感操作确认弹窗展示具体动作和影响对象。",
+      ],
+      pitfalls: [
+        "只显示一个 loading 会让用户觉得卡死。",
+        "网络断开或刷新后没有任务状态，会丢失用户信任。",
+      ],
+      interview:
+        "我会说：Agent 前端的重点是可控感。用户要知道系统在做什么、能不能取消、失败后怎么办。",
+      diagram: "agent",
+    },
+  },
+];
+
+const agentQuestionMap = new Map(agentQuestions.map((item) => [item.slug, item]));
+
+const agentDeepDiveByDiagram = {
+  json: {
+    scenario: "适合表单抽取、配置生成、接口参数组装、AI 批改结果等必须被程序继续消费的场景。这里的重点不是让模型“看起来像 JSON”，而是让后端拿到稳定、可校验、可回滚的数据对象。",
+    steps: [
+      "先定义 schema：字段名、类型、枚举、默认值、是否必填、是否允许额外字段。",
+      "模型侧使用 structured output / function calling；不支持时用低温度和严格输出边界。",
+      "服务端做 JSON.parse、schema validate、业务规则校验，失败后按错误原因重试。",
+      "把失败样本沉淀为测试集，统计解析失败率、字段缺失率、重试成功率。",
+    ],
+    metrics: ["JSON 解析失败率", "Schema 校验失败率", "平均重试次数", "字段缺失率"],
+  },
+  rag: {
+    scenario: "适合企业知识库、产品文档、论文资料、客服资料和权限隔离明显的内容。长上下文能简化一部分场景，但当资料规模、权限、更新频率上来后，仍然需要检索、过滤和来源追踪。",
+    steps: [
+      "先判断知识规模和权限：少量用户上传文档可直接进上下文，大规模知识库走检索。",
+      "构建元数据：标题路径、来源、更新时间、权限标签、业务域。",
+      "召回用混合策略：向量检索解决语义，关键词/BM25 解决精确词和编号。",
+      "回答必须引用来源，模型不能把未召回内容当事实。",
+    ],
+    metrics: ["召回命中率", "答案引用覆盖率", "权限过滤误漏率", "单次回答成本"],
+  },
+  grounding: {
+    scenario: "适合事实型、高风险或用户会据此行动的问题，例如价格、订单、政策、医学、法律和排期。模型只负责组织语言和推理，事实必须来自可验证来源。",
+    steps: [
+      "把问题拆成事实查询和推理表达两部分。",
+      "事实查询走数据库、检索、API 或人工确认，不让模型凭印象回答。",
+      "回答中区分确定事实、根据证据的推断、需要补充确认的信息。",
+      "对高风险输出增加规则校验、引用检查和拒答策略。",
+    ],
+    metrics: ["事实准确率", "引用有效率", "拒答正确率", "人工纠错率"],
+  },
+  memory: {
+    scenario: "适合长期助手、个人工作流、客服连续会话和多步骤任务。记忆不是聊天记录堆叠，而是把当前目标、稳定偏好、关键决策和任务状态分层保存。",
+    steps: [
+      "短期上下文保存当前任务材料和最近动作。",
+      "会话摘要保存阶段性决策、约束和未完成事项。",
+      "长期记忆只保存用户确认过或重复出现的稳定偏好。",
+      "敏感信息默认不入长期记忆，并提供删除和审计能力。",
+    ],
+    metrics: ["上下文 token 消耗", "记忆命中率", "记忆冲突率", "用户纠正次数"],
+  },
+  tool: {
+    scenario: "适合查询订单、生成报告、写入配置、发送消息、调用内部系统等需要 Agent 操作真实系统的场景。工具调用的核心是权限和副作用控制。",
+    steps: [
+      "每个工具定义输入 schema、输出 schema、权限级别、超时和错误码。",
+      "读工具可自动执行，写工具必须按风险分级确认。",
+      "工具结果返回给模型前先做脱敏、裁剪和业务状态归一。",
+      "所有副作用动作写审计日志，并使用幂等 key 避免重复执行。",
+    ],
+    metrics: ["工具选择准确率", "参数校验失败率", "工具超时率", "副作用误操作数"],
+  },
+  safety: {
+    scenario: "适合联网 Agent、企业内部助手、自动发消息/改数据/读隐私资料的系统。安全设计必须在模型外层完成，不能只靠 prompt 让模型自觉。",
+    steps: [
+      "把网页、邮件、用户上传内容、工具返回都标记为不可信输入。",
+      "系统权限、数据过滤和动作确认放在程序层，不交给模型自由判断。",
+      "敏感动作采用最小授权、二次确认、审计日志和可撤销机制。",
+      "对输出做策略检查，避免泄露隐私、密钥、内部提示词和越权信息。",
+    ],
+    metrics: ["越权拦截率", "敏感信息泄露数", "高风险动作确认率", "安全策略误杀率"],
+  },
+  eval: {
+    scenario: "适合从 demo 走向生产前的验收。Agent 不只评回答好不好，还要评任务是否完成、工具是否正确、是否安全、成本和延迟是否可接受。",
+    steps: [
+      "建立真实任务集，每条任务包含输入、允许工具、期望结果和失败标准。",
+      "记录完整 trace：模型、上下文、工具参数、工具结果、耗时和 token。",
+      "用离线评测做版本回归，用线上监控看真实失败率。",
+      "把人工接管、用户纠错和工具错误反哺到评测集。",
+    ],
+    metrics: ["任务完成率", "工具正确率", "平均延迟", "单位成功任务成本"],
+  },
+  agent: {
+    scenario: "适合多步骤、长链路、可中断恢复的任务，例如生成报告、排查问题、整理资料、自动化运营。核心不是让模型自由发挥，而是把目标、状态和边界管理清楚。",
+    steps: [
+      "把任务拆成状态：理解、计划、执行、观察、确认、完成或失败。",
+      "每个状态限定可用工具、退出条件和失败恢复动作。",
+      "长任务保存 checkpoint，支持中断续跑和人工接管。",
+      "主流程负责仲裁，模型负责建议下一步，不让模型越过业务边界。",
+    ],
+    metrics: ["任务完成率", "循环步数", "人工接管率", "失败恢复成功率"],
+  },
+};
+
+function getAgentDeepDive(item) {
+  return agentDeepDiveByDiagram[item.answer.diagram] || agentDeepDiveByDiagram.agent;
+}
+
 const skillDetails = [
   {
     slug: "experience",
@@ -406,12 +1075,20 @@ function App() {
   const skillSlug = route.startsWith("/skill/")
     ? route.replace(/^\/skill\/?/, "").replace(/\/$/, "")
     : "";
+  const agentSlug = route.startsWith("/agent/")
+    ? route.replace(/^\/agent\/?/, "").replace(/\/$/, "")
+    : "";
   const project = projectSlug ? projects.find((item) => item.slug === projectSlug) : null;
   const skill = skillSlug ? skillDetailMap.get(skillSlug) : null;
+  const agentQuestion = agentSlug ? agentQuestionMap.get(agentSlug) : null;
   let page;
 
   if (route === "/desktop") {
     page = <DesktopVersionPage auth={auth} />;
+  } else if (agentSlug && agentQuestion) {
+    page = <AgentQuestionPage item={agentQuestion} auth={auth} />;
+  } else if (agentSlug && !agentQuestion) {
+    page = <NotFound />;
   } else if (skillSlug && skill) {
     page = <SkillDetailPage skill={skill} auth={auth} />;
   } else if (skillSlug && !skill) {
@@ -441,6 +1118,9 @@ function getRoute() {
   if (window.location.hash.startsWith("#/skill/")) {
     return window.location.hash.slice(1);
   }
+  if (window.location.hash.startsWith("#/agent/")) {
+    return window.location.hash.slice(1);
+  }
   if (window.location.hash === "#/desktop") {
     return "/desktop";
   }
@@ -451,6 +1131,7 @@ function getRoute() {
 
   if (currentPath === "/desktop" || currentPath === "/desktop/") return "/desktop";
   if (currentPath.startsWith("/skill/")) return currentPath;
+  if (currentPath.startsWith("/agent/")) return currentPath;
   return currentPath.startsWith("/project/") ? currentPath : "/";
 }
 
@@ -2024,6 +2705,14 @@ function ProjectCard({ project, index }) {
 }
 
 function AIMiniProjectsSection() {
+  const featuredQuestions = agentQuestions.slice(0, 4);
+  const pagedQuestions = agentQuestions.slice(4);
+  const pageSize = 8;
+  const totalPages = Math.ceil(pagedQuestions.length / pageSize);
+  const [agentPage, setAgentPage] = React.useState(1);
+  const pageStart = (agentPage - 1) * pageSize;
+  const primaryQuestions = pagedQuestions.slice(pageStart, pageStart + pageSize);
+
   return (
     <section className="ai-lab-section section" id="ai-lab">
       <div className="ai-lab-shell">
@@ -2035,6 +2724,7 @@ function AIMiniProjectsSection() {
           </p>
           <div className="ai-lab-stats" aria-label="AI 小项目概览">
             <span><strong>{aiMiniProjects.length}</strong> 个外链 Demo</span>
+            <span><strong>{agentQuestions.length}</strong> 个 Agent 开发问答</span>
             <span><strong>5</strong> 个小游戏</span>
             <span><strong>3</strong> 个科普文档</span>
             <span><strong>{aiResearchDocs.length}</strong> 个研究文档</span>
@@ -2060,6 +2750,72 @@ function AIMiniProjectsSection() {
               </span>
             </a>
           ))}
+        </div>
+        <div className="agent-faq-panel" aria-label="Agent 开发常见问题">
+          <div className="agent-faq-head">
+            <div>
+              <span className="section-eyebrow">Agent Engineering FAQ</span>
+              <h3>Agent 开发常见问题</h3>
+              <p>围绕结构化输出、RAG、幻觉、记忆、工具调用、安全、评测和成本，整理成可点击的工程实践问答。每个问题都按“原理、落地步骤、风险点、面试表达”拆开。</p>
+            </div>
+            <div className="agent-faq-meter" aria-label="Agent 问题数量">
+              <strong>{agentQuestions.length}</strong>
+              <span>个工程问题</span>
+            </div>
+          </div>
+          <div className="agent-feature-grid">
+            {featuredQuestions.map((item, index) => (
+              <a className="agent-feature-card" href={`${basePath}/agent/${item.slug}`} key={item.slug}>
+                <span className="agent-feature-index">{String(index + 1).padStart(2, "0")}</span>
+                <em>{item.category}</em>
+                <strong>{item.question}</strong>
+                <p>{item.summary}</p>
+                <span className="agent-feature-action">查看拆解 <ArrowUpRight size={15} /></span>
+              </a>
+            ))}
+          </div>
+          <div className="agent-question-list" aria-label="Agent 更多常见问题">
+            {primaryQuestions.map((item, index) => (
+              <a className="agent-question-item" href={`${basePath}/agent/${item.slug}`} key={item.slug}>
+                <span>{String(pageStart + index + 5).padStart(2, "0")}</span>
+                <div>
+                  <strong>{item.question}</strong>
+                  <p>{item.summary}</p>
+                </div>
+                <em>{item.category}</em>
+                <ArrowUpRight size={16} />
+              </a>
+            ))}
+          </div>
+          <div className="agent-pagination" aria-label="Agent 问题分页">
+            <button
+              type="button"
+              onClick={() => setAgentPage((page) => Math.max(1, page - 1))}
+              disabled={agentPage === 1}
+            >
+              上一页
+            </button>
+            <div>
+              {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+                <button
+                  type="button"
+                  className={page === agentPage ? "is-active" : ""}
+                  onClick={() => setAgentPage(page)}
+                  aria-current={page === agentPage ? "page" : undefined}
+                  key={page}
+                >
+                  {page}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setAgentPage((page) => Math.min(totalPages, page + 1))}
+              disabled={agentPage === totalPages}
+            >
+              下一页
+            </button>
+          </div>
         </div>
         <div className="ai-doc-panel" aria-label="Web3 研究文档">
           <div className="ai-doc-panel-head">
@@ -2121,6 +2877,169 @@ function DesktopVersionPage({ auth }) {
         )}
       </main>
     </>
+  );
+}
+
+function AgentQuestionPage({ item, auth }) {
+  const deepDive = getAgentDeepDive(item);
+
+  return (
+    <>
+      <header className="detail-header agent-detail-header">
+        <a href={`${basePath}/#ai-lab`} className="back-link"><ArrowLeft size={18} /> 返回 AI 实验室</a>
+      </header>
+      <main className="agent-detail-main">
+        <section className="agent-detail-hero">
+          <div>
+            <span className="section-eyebrow">Agent Engineering</span>
+            <h1>{item.question}</h1>
+            <p>{item.summary}</p>
+          </div>
+          <span className="agent-category-badge">{item.category}</span>
+        </section>
+
+        <section className="agent-detail-layout">
+          <aside className="agent-detail-sidebar" aria-label="问题拆解目录">
+            <span className="section-eyebrow">Answer Map</span>
+            <a href="#agent-core">核心判断</a>
+            <a href="#agent-steps">落地步骤</a>
+            <a href="#agent-practices">工程做法</a>
+            <a href="#agent-risks">风险点</a>
+            {auth.isAuthenticated ? <a href="#agent-interview">面试回答</a> : null}
+          </aside>
+
+          <div className="agent-detail-content">
+            <section className="agent-answer-grid" id="agent-core">
+              <article className="agent-answer-card is-main">
+                <span className="section-eyebrow">Core Answer</span>
+                <h2>核心判断</h2>
+                <p>{item.answer.core}</p>
+                <div className="agent-scenario-box">
+                  <strong>适用场景</strong>
+                  <p>{deepDive.scenario}</p>
+                </div>
+              </article>
+              <AgentDiagram type={item.answer.diagram} />
+            </section>
+
+            <section className="agent-playbook-card" id="agent-steps">
+              <div>
+                <span className="section-eyebrow">Implementation Playbook</span>
+                <h2>落地拆解</h2>
+              </div>
+              <ol>
+                {deepDive.steps.map((text) => <li key={text}>{text}</li>)}
+              </ol>
+            </section>
+
+            <section className="agent-answer-columns" id="agent-practices">
+              <article className="agent-answer-card">
+                <span className="section-eyebrow">Engineering Practices</span>
+                <h2>工程做法</h2>
+                <ul>
+                  {item.answer.practices.map((text) => <li key={text}>{text}</li>)}
+                </ul>
+              </article>
+              <article className="agent-answer-card" id="agent-risks">
+                <span className="section-eyebrow">Common Pitfalls</span>
+                <h2>常见坑</h2>
+                <ul>
+                  {item.answer.pitfalls.map((text) => <li key={text}>{text}</li>)}
+                </ul>
+              </article>
+            </section>
+
+            <section className="agent-metrics-card" aria-label="评估指标">
+              <span className="section-eyebrow">Production Metrics</span>
+              <h2>上线后看这些指标</h2>
+              <div>
+                {deepDive.metrics.map((metric) => <span key={metric}>{metric}</span>)}
+              </div>
+            </section>
+          </div>
+        </section>
+
+        {auth.isAuthenticated ? (
+          <section className="agent-interview-card" id="agent-interview">
+            <span className="section-eyebrow">Interview Narrative</span>
+            <h2>面试时可以这样回答</h2>
+            <p>{item.answer.interview}</p>
+            <p>
+              如果继续展开，我会补充具体工程取舍：先说明这个问题的风险边界，再讲系统层面的控制点，最后用指标闭环证明方案有效。这样回答比只讲概念更像真实项目经验。
+            </p>
+          </section>
+        ) : null}
+
+        <section className="agent-related-panel">
+          <div>
+            <span className="section-eyebrow">More Questions</span>
+            <h2>继续查看 Agent 开发问题</h2>
+          </div>
+          <div className="agent-related-list">
+            {agentQuestions.filter((next) => next.slug !== item.slug).slice(0, 6).map((next) => (
+              <a href={`${basePath}/agent/${next.slug}`} key={next.slug}>
+                {next.question}
+                <ArrowUpRight size={14} />
+              </a>
+            ))}
+          </div>
+        </section>
+      </main>
+      <Footer />
+    </>
+  );
+}
+
+function AgentDiagram({ type }) {
+  const diagrams = {
+    json: {
+      title: "稳定 JSON 输出链路",
+      nodes: ["Prompt + Schema", "模型生成", "JSON.parse", "Schema 校验", "重试/兜底", "业务使用"],
+    },
+    rag: {
+      title: "RAG / 长上下文 / 搜索选型",
+      nodes: ["用户问题", "规模与权限判断", "长上下文", "RAG/全文搜索", "数据库/API", "带来源回答"],
+    },
+    grounding: {
+      title: "降低幻觉的证据闭环",
+      nodes: ["问题", "检索/工具", "证据片段", "模型回答", "事实校验", "拒答/修正"],
+    },
+    memory: {
+      title: "Agent 记忆分层",
+      nodes: ["短期上下文", "会话摘要", "任务状态", "用户偏好", "知识库", "缓存层"],
+    },
+    tool: {
+      title: "工具调用控制链路",
+      nodes: ["意图识别", "选择工具", "参数校验", "权限检查", "工具执行", "结果校验"],
+    },
+    safety: {
+      title: "Agent 安全边界",
+      nodes: ["不可信输入", "指令隔离", "权限过滤", "动作确认", "执行审计", "输出过滤"],
+    },
+    eval: {
+      title: "Agent 评测闭环",
+      nodes: ["任务集", "执行 Trace", "结果评分", "失败样本", "回归测试", "线上监控"],
+    },
+    agent: {
+      title: "Agent 执行循环",
+      nodes: ["目标", "规划", "执行", "观察", "修正", "完成/交接"],
+    },
+  };
+  const diagram = diagrams[type] || diagrams.agent;
+
+  return (
+    <aside className="agent-diagram-card" aria-label={diagram.title}>
+      <span className="section-eyebrow">Diagram</span>
+      <h2>{diagram.title}</h2>
+      <div className="agent-diagram-flow">
+        {diagram.nodes.map((node, index) => (
+          <React.Fragment key={node}>
+            <span>{node}</span>
+            {index < diagram.nodes.length - 1 ? <i /> : null}
+          </React.Fragment>
+        ))}
+      </div>
+    </aside>
   );
 }
 
