@@ -2860,13 +2860,19 @@ function DesktopVersionPage({ auth }) {
       ) : null}
       <main className={`desktop-version-main${auth.isAuthenticated ? " desktop-version-main-authed" : ""}`}>
         {auth.isAuthenticated ? (
-          <section className="desktop-version-shell" aria-label="DesktopVersion 后台">
-            <iframe
-              className="desktop-version-frame"
-              title="DesktopVersion"
-              src={desktopVersionSrc}
-            />
-          </section>
+          <>
+            <a href={`${basePath}/`} className="desktop-version-back-home">
+              <ArrowLeft size={17} />
+              返回首页
+            </a>
+            <section className="desktop-version-shell" aria-label="DesktopVersion 后台">
+              <iframe
+                className="desktop-version-frame"
+                title="DesktopVersion"
+                src={desktopVersionSrc}
+              />
+            </section>
+          </>
         ) : (
           <section className="desktop-version-locked">
             <span><LockKeyhole size={28} /></span>
