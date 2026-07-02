@@ -2845,18 +2845,20 @@ function AIMiniProjectsSection() {
 function DesktopVersionPage({ auth }) {
   return (
     <>
-      <header className="detail-header desktop-version-header">
-        <a href={`${basePath}/`} className="back-link"><ArrowLeft size={18} /> 返回首页</a>
-        <button
-          className="secondary-action"
-          type="button"
-          onClick={auth.openLogin}
-        >
-          {auth.isAuthenticated ? <ShieldCheck size={18} /> : <LockKeyhole size={18} />}
-          {auth.isAuthenticated ? "管理登录状态" : "登录后查看"}
-        </button>
-      </header>
-      <main className="desktop-version-main">
+      {!auth.isAuthenticated ? (
+        <header className="detail-header desktop-version-header">
+          <a href={`${basePath}/`} className="back-link"><ArrowLeft size={18} /> 返回首页</a>
+          <button
+            className="secondary-action"
+            type="button"
+            onClick={auth.openLogin}
+          >
+            <LockKeyhole size={18} />
+            登录后查看
+          </button>
+        </header>
+      ) : null}
+      <main className={`desktop-version-main${auth.isAuthenticated ? " desktop-version-main-authed" : ""}`}>
         {auth.isAuthenticated ? (
           <section className="desktop-version-shell" aria-label="DesktopVersion 后台">
             <iframe

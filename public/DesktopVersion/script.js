@@ -313,7 +313,7 @@ function getStoredApiEnv() {
 
 function getStoredTheme() {
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-  return stored === "light" ? "light" : "dark";
+  return stored === "dark" ? "dark" : "light";
 }
 
 function getStoredLandingH5Base() {
