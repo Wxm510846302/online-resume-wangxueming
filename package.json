@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "vite build",
+    "build": "vite build && node scripts/create-github-pages-fallback.mjs",
     "video:studio": "remotion studio src/remotion/index.jsx",
     "video:still": "remotion still src/remotion/index.jsx ResumeIntro --frame=120 --scale=0.5 out/resume-intro-frame.png",
     "video:render": "remotion render src/remotion/index.jsx ResumeIntro out/wangxueming-resume-intro.mp4",
