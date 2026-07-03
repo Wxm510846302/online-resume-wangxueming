@@ -1,9 +1,10 @@
 个 人 简 历
-王学明  （男）     求职意向：高级前端全栈开发工程师 （客户端-小程序-web）
-工作年限 ： 十  年	学	历：本科
+王学明  （男）         1993年10月生  求职意向：高级前端全栈开发工程师 （客户端-小程序-web）
+工作年限 ： 十  年	    学	历：本科
 电	话： 17610241135                                             邮       箱： wangxueming_1993@163.com
-籍	贯： 河北保定	现       居：北京
-Gitee      ： https://gitee.com/xuemingwang                 Twitter     ：https://x.com/XM_LKWeb3Team
+籍	贯： 河北保定
+现  居：北京
+Gitee      ： https://gitee.com/xuemingwang                     X     ：https://x.com/XM_LKWeb3Team
 专业技能
 系统架构与底层技术
 内存与性能优化：深度掌握 iOS 内存管理（ARC/MRC）、多线程、Runtime、RunLoop 机制，精通 Instruments 工具链（Time Profiler、Leaks 等）进行性能调优，主导过千万级用户项目卡顿优化，启动耗时平均降低 35%。
