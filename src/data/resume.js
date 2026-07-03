@@ -205,7 +205,7 @@ export const projects = [
       "维护蓝港平台 BI App 与 Web3 资管 App，整合钱包地址、协议分类和公司主体数据。",
     ],
     results: [
-      "支付掉单率从 8% 降至 3%，SDK 支撑千万级用户并发。",
+      "支付掉单率从 0.2‰ 降至 ≤0.05‰，SDK 支撑千万级用户并发。",
       "形成游戏 SDK、资管模块和即时通讯模块服务，支持集团商业化和 Web3 业务闭环。",
       "整合 Element NFT 平台、NAGA Web3 游戏平台和火星财经，服务 LK Venture 生态建设。",
     ],
@@ -218,7 +218,7 @@ export const projects = [
     assets: [
       { type: "diagram", title: "SDK 架构图", text: "登录、支付、分享、打点、聊天、Unity 桥接模块分层。", status: "可绘制", url: "", thumbnail: "", privacyLevel: "public-after-redraw" },
       { type: "screenshot", title: "BI 看板截图", text: "展示数据报表结构，隐藏真实经营数据。", status: "待脱敏", url: "", thumbnail: "", privacyLevel: "needs-redaction" },
-      { type: "video", title: "支付链路说明视频", text: "用动画讲清楚掉单率从 8% 到 3% 的治理路径。", status: "可制作", url: "", thumbnail: "", privacyLevel: "public-after-redraw" },
+      { type: "video", title: "支付链路说明视频", text: "用动画讲清楚掉单率从 0.2‰ 降至 ≤0.05‰ 的治理路径。", status: "可制作", url: "", thumbnail: "", privacyLevel: "public-after-redraw" },
     ],
   },
   {
