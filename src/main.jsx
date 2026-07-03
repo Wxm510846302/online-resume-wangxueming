@@ -3060,11 +3060,11 @@ function SkillDetailPage({ skill, auth }) {
       <header className="detail-header skill-detail-header">
         <a href={`${basePath}/#top`} className="back-link"><ArrowLeft size={18} /> 返回首页</a>
         <div className="skill-header-actions">
-          {!auth.isAuthenticated ? (
+          {/* {!auth.isAuthenticated ? (
             <button className="secondary-action" type="button" onClick={auth.openLogin}>
               <LockKeyhole size={16} /> 登录查看面试话术
             </button>
-          ) : null}
+          ) : null} */}
           <a href={`${basePath}/#projects`} className="secondary-action">
             查看项目案例 <ArrowUpRight size={16} />
           </a>
