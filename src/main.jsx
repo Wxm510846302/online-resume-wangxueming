@@ -59,6 +59,27 @@ const metricIcons = [CalendarClock, UserCog, Blocks, Gauge, Gamepad2, PackageChe
 
 const aiMiniProjects = [
   {
+    title: "太阳系模拟器",
+    type: "可视化",
+    description: "天体轨道模拟展示，适合体现 Canvas/Web 动效和科普表达。",
+    url: "https://static-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/DesktopVersion/solar-system/index.html",
+    accent: "violet",
+  },
+  {
+    title: "五子棋",
+    type: "小游戏",
+    description: "经典棋盘对弈，包含落子、胜负判断和棋局状态维护。",
+    url: "https://static-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/minigame/Wzq/deliverables/gomoku.html",
+    accent: "dark",
+  },
+  {
+    title: "象棋",
+    type: "小游戏",
+    description: "中国象棋 Web 版，突出复杂规则建模与棋盘交互实现。",
+    url: "https://static-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/minigame/Xq/xiangqi.html",
+    accent: "red",
+  },
+  {
     title: "成语接龙",
     type: "小游戏",
     description: "中文成语连续接龙练习，适合展示规则约束和轻交互体验。",
@@ -78,27 +99,6 @@ const aiMiniProjects = [
     description: "图片切片拖拽还原，验证网格计算、拖拽交互和完成判定。",
     url: "https://static-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/minigame/Pt/index.html",
     accent: "amber",
-  },
-  {
-    title: "五子棋",
-    type: "小游戏",
-    description: "经典棋盘对弈，包含落子、胜负判断和棋局状态维护。",
-    url: "https://static-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/minigame/Wzq/deliverables/gomoku.html",
-    accent: "dark",
-  },
-  {
-    title: "象棋",
-    type: "小游戏",
-    description: "中国象棋 Web 版，突出复杂规则建模与棋盘交互实现。",
-    url: "https://static-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/minigame/Xq/xiangqi.html",
-    accent: "red",
-  },
-  {
-    title: "太阳系模拟器",
-    type: "可视化",
-    description: "天体轨道模拟展示，适合体现 Canvas/Web 动效和科普表达。",
-    url: "https://static-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/DesktopVersion/solar-system/index.html",
-    accent: "violet",
   },
   {
     title: "非自杀性自伤临床诊治",
@@ -2603,9 +2603,9 @@ function FloatingAssistant({ assistant }) {
 
 function SkillMatrix() {
   const rows = [
-    ["前端 / 跨端", "TypeScript", "React", "Vue 3", "Flutter", "小程序"],
+    ["前端 / 跨端", "TypeScript", "React", "Vue", "Flutter", "小程序"],
     ["客户端", "iOS (Swift)", "Flutter App", "WebView", "性能优化", "SDK"],
-    ["后端 / 全栈", "Node.js", "Python", "GraphQL", "接口设计", "自动化脚本"],
+    ["后端", "Node.js", "Python", "GraphQL", "接口设计", "自动化脚本"],
     ["数据 / 存储", "SQLite", "FMDB", "CoreData", "MySQL", "Redis"],
     ["工程化 / 工具", "Vite", "CocoaPods", "CI/CD", "Git", "ESLint"],
     ["Web3 / AI", "Solidity", "Ethers.js", "NFT", "AI API", "LangChain"],
