@@ -37,7 +37,8 @@ function parseProxyPaths(value, fallback) {
   };
 
   append(value);
-  append(fallback);
+  // 仅在没有部署配置时使用本地默认接口，避免 GitHub Pages 将 POST 回退成静态页面请求并返回 405。
+  if (values.length === 0) append(fallback);
   return [...new Set(values)];
 }
 

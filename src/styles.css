@@ -3441,6 +3441,8 @@ section[id] {
 }
 
 .assistant-chat-floating {
+  /* 浮层按实际内容排布各行，避免 1fr 将消息区拉伸到面板剩余高度。 */
+  grid-template-rows: auto auto auto auto auto;
   width: 100%;
   max-height: min(620px, calc(100vh - 132px));
   margin: 0;
