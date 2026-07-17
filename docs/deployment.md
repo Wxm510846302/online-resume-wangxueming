@@ -15,3 +15,9 @@ VITE_BASE_PATH=/resume/ pnpm run build
 ```
 
 同时确保托管平台把 `/resume/project/*` 回退到 `/resume/index.html`。
+
+## GitHub Pages API 限制
+
+GitHub Pages 只能托管静态文件，不能处理 `/api/*` 的 POST 请求。AI 问答部署到 GitHub Pages 时，必须在构建环境中通过 `VITE_COZE_PROXY_PATHS` 配置 uniCloud、Vercel、Netlify 等外部 HTTPS 函数地址。
+
+不要将相对地址 `/api/coze-chat` 配置为 GitHub Pages 的生产回退接口，否则浏览器请求会返回 HTTP 405。修改仓库 Variables 后需重新运行 Pages 发布工作流，环境变量才会写入新的前端构建产物。

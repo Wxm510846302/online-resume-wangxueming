@@ -225,13 +225,14 @@ src/styles.css
 前端聊天调用在 `src/main.jsx`：
 
 ```js
-const cozeApiPath = import.meta.env.VITE_COZE_PROXY_PATH || "/api/coze-chat";
+const defaultCozeApiPath = import.meta.env.VITE_COZE_PROXY_PATH || "/api/coze-chat";
+const cozeApiPaths = parseProxyPaths(import.meta.env.VITE_COZE_PROXY_PATHS, defaultCozeApiPath);
 ```
 
 提问时调用：
 
 ```js
-fetch(cozeApiPath, {
+fetch(cozeApiPaths[0], {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
@@ -252,8 +253,12 @@ fetch(cozeApiPath, {
 线上 GitHub Pages 构建时使用：
 
 ```text
-VITE_COZE_PROXY_PATH=https://fc-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/coze-chat
+VITE_COZE_PROXY_PATHS=https://fc-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/coze-chat
 ```
+
+`VITE_COZE_PROXY_PATHS` 支持使用英文逗号配置多个服务端代理，前端会按顺序尝试。只允许配置真实可接收 POST 的服务端接口，例如 uniCloud、Vercel 或 Netlify Function；不要把 GitHub Pages 本站的 `/api/coze-chat` 配成线上回退地址，因为 GitHub Pages 是静态托管，POST 请求会返回 HTTP 405。
+
+当已提供线上代理配置时，`parseProxyPaths()` 不会再追加本地默认的 `/api/coze-chat`。只有本地开发且没有提供代理配置时，才使用 Vite 中间件提供的相对路径接口。
 
 ### 6.2 为什么不能把 Key 写在前端
 
@@ -462,17 +467,18 @@ VITE_BASE_PATH=/online-resume-wangxueming/ npm run build
 
 1. Checkout `main`。
 2. 安装 Node 22。
-3. `npm install`。
+3. `npm install --include=optional`。
 4. 设置环境变量并运行 `npm run build`。
-5. 进入 `dist`。
-6. 初始化临时 `gh-pages` 分支。
-7. force push 到远端 `gh-pages`。
+5. 在 `dist` 中创建 `.nojekyll`。
+6. 使用 `actions/upload-pages-artifact` 上传构建产物。
+7. 使用 `actions/deploy-pages` 发布到 GitHub Pages。
 
 关键构建环境变量：
 
 ```yaml
 VITE_BASE_PATH: /online-resume-wangxueming/
-VITE_COZE_PROXY_PATH: https://fc-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/coze-chat
+VITE_COZE_PROXY_PATHS: https://fc-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/coze-chat
+VITE_COZE_SPEECH_PROXY_PATHS: https://fc-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/coze-chat
 ```
 
 发布后如果页面短时间仍显示旧内容，多半是 GitHub Pages CDN 缓存。可用缓存参数验证：
@@ -631,15 +637,38 @@ git status --short
 /project/:slug
 ```
 
-### 11.3 AI 显示未连通或 404
+### 11.3 AI 显示未连通、404 或 405
 
 检查：
 
-- `VITE_COZE_PROXY_PATH` 是否指向可访问的 uniCloud 云函数。
+- `VITE_COZE_PROXY_PATHS` 是否指向可访问、支持 POST 的服务端云函数。
 - uniCloud 云函数 URL 访问路径是否为 `/coze-chat`。
 - 云函数环境变量是否配置 `COZE_API_TOKEN`。
 - Coze Token 是否有效、额度是否可用。
 - 浏览器控制台是否有 CORS 报错。
+
+HTTP 405 通常表示请求被发到了静态托管地址或不接受 POST 的路由。先在浏览器 Network 面板确认最终 Request URL，不能是：
+
+```text
+https://wxm510846302.github.io/api/coze-chat
+https://wxm510846302.github.io/online-resume-wangxueming/api/coze-chat
+```
+
+可用以下命令分别检查跨域预检和实际 POST：
+
+```bash
+curl -i -X OPTIONS "$COZE_PROXY_URL" \
+  -H 'Origin: https://wxm510846302.github.io' \
+  -H 'Access-Control-Request-Method: POST' \
+  -H 'Access-Control-Request-Headers: content-type'
+
+curl -i -X POST "$COZE_PROXY_URL" \
+  -H 'Origin: https://wxm510846302.github.io' \
+  -H 'Content-Type: application/json' \
+  --data '{"question":"请只回复：连接测试成功","userId":"release-check"}'
+```
+
+预期两个请求均为 2xx，POST 返回包含 `answer` 的 JSON。修改 GitHub Actions Variables 后，需要重新运行 Pages 工作流，旧的前端构建不会自动读取新变量。
 
 ### 11.4 Coze 返回额度或权限错误
 
@@ -670,6 +699,32 @@ content-type: application/pdf
 - 确认 `public/wangxueming-resume.pdf` 存在。
 - 确认构建后 `dist/wangxueming-resume.pdf` 存在。
 - 确认 Pages 部署完成。
+
+### 11.6 AI 浮层回答区出现大块留白
+
+浮层聊天使用 CSS Grid。仅修改 `.assistant-messages` 的 `min-height` 不足以消除留白；如果父级仍使用 `minmax(0, 1fr)`，消息行会继续占满面板剩余高度。
+
+当前处理方式是只覆盖浮层布局：
+
+```css
+.assistant-chat-floating {
+  grid-template-rows: auto auto auto auto auto;
+}
+
+.assistant-chat-floating .assistant-messages {
+  min-height: 0;
+  max-height: min(300px, calc(100vh - 388px));
+}
+```
+
+这样短回答会按内容收缩，长回答仍受 `max-height` 限制并在消息区内部滚动。不要直接修改普通 `.assistant-chat` 的 Grid 行配置，否则会同时影响页面内嵌的完整问答区。
+
+发布后应至少回归以下状态：
+
+- 桌面浮动面板中的短回答和长回答。
+- 窄屏底部面板中的短回答和长回答。
+- 快捷问题紧跟消息区，之间没有被拉伸的空白。
+- 长回答可以滚动，快捷问题和输入框仍可见。
 
 ## 12. 安全注意事项
 
