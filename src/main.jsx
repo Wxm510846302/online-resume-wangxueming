@@ -2216,6 +2216,11 @@ function AssistantThinkingProcess({ thinking }) {
     ? `${thinking.fallback ? "处理完成" : "思考了"} ${duration}`
     : thinking.phase === "fallback" ? "正在切换回答方式" : "正在思考";
 
+  React.useEffect(() => {
+    // 回答流完全结束后自动收起，用户后续仍可手动重新展开查看过程摘要。
+    if (thinking.phase === "done") setExpanded(false);
+  }, [thinking.phase]);
+
   return (
     <div className={`assistant-thinking${finished ? " is-finished" : ""}`}>
       <button
@@ -2336,21 +2341,42 @@ function hideUnclosedInlineMarkdown(text) {
 
 async function streamAssistantReply(question, assistantId, signal, setMessages, setServiceState) {
   let lastError = null;
+  const thinkingGate = createAssistantThinkingGate(setMessages, assistantId, signal);
 
-  for (const path of cozeApiPaths) {
-    try {
-      await streamAssistantReplyFromPath(path, question, assistantId, signal, setMessages, setServiceState);
-      return;
-    } catch (error) {
-      if (signal.aborted) throw error;
-      lastError = error;
+  try {
+    for (const path of cozeApiPaths) {
+      try {
+        await streamAssistantReplyFromPath(
+          path,
+          question,
+          assistantId,
+          signal,
+          setMessages,
+          setServiceState,
+          thinkingGate.prepareWriting,
+        );
+        return;
+      } catch (error) {
+        if (signal.aborted) throw error;
+        lastError = error;
+      }
     }
+  } finally {
+    thinkingGate.cancel();
   }
 
   throw new Error(formatProxyFailure("AI 接口", lastError));
 }
 
-async function streamAssistantReplyFromPath(path, question, assistantId, signal, setMessages, setServiceState) {
+async function streamAssistantReplyFromPath(
+  path,
+  question,
+  assistantId,
+  signal,
+  setMessages,
+  setServiceState,
+  prepareWriting,
+) {
   const response = await fetch(path, {
     method: "POST",
     headers: {
@@ -2370,8 +2396,6 @@ async function streamAssistantReplyFromPath(path, question, assistantId, signal,
     throw new Error(payload?.detail || payload?.error || `HTTP ${response.status}`);
   }
 
-  updateAssistantThinking(setMessages, assistantId, "reviewing");
-
   const contentType = response.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {
     const payload = await response.json();
@@ -2380,7 +2404,7 @@ async function streamAssistantReplyFromPath(path, question, assistantId, signal,
       throw new Error(payload?.error || "AI 接口没有返回可展示内容");
     }
     rememberConversationId(payload?.conversationId || payload?.data?.conversationId);
-    updateAssistantThinking(setMessages, assistantId, "writing");
+    await prepareWriting();
     setServiceState("replying");
     await typeAssistantText(assistantId, answer, setMessages, signal);
     updateAssistantThinking(setMessages, assistantId, "done");
@@ -2407,8 +2431,8 @@ async function streamAssistantReplyFromPath(path, question, assistantId, signal,
     rememberConversationId(conversationId);
     if (!text) continue;
 
+    if (!hasContent) await prepareWriting();
     hasContent = true;
-    updateAssistantThinking(setMessages, assistantId, "writing");
     setServiceState("replying");
     await typeAssistantText(assistantId, text, setMessages, signal, { append: true });
   }
@@ -2417,8 +2441,8 @@ async function streamAssistantReplyFromPath(path, question, assistantId, signal,
     const { text, conversationId } = parseCozeSseChunk(buffer);
     rememberConversationId(conversationId);
     if (text) {
+      if (!hasContent) await prepareWriting();
       hasContent = true;
-      updateAssistantThinking(setMessages, assistantId, "writing");
       setServiceState("replying");
       await typeAssistantText(assistantId, text, setMessages, signal, { append: true });
     }
@@ -2509,6 +2533,54 @@ function createAssistantThinking(startedAt = Date.now()) {
     phase: "analyzing",
     fallback: false,
   };
+}
+
+function createAssistantThinkingGate(setMessages, assistantId, signal) {
+  let cancelled = false;
+  let writingPromise = null;
+
+  // 阶段并行于网络请求推进，并保留最短可见时间，避免多个状态在同一帧内跳过。
+  const reviewingPromise = (async () => {
+    const canReview = await waitForThinkingPhase(500, signal);
+    if (!canReview || cancelled) return false;
+    updateAssistantThinking(setMessages, assistantId, "reviewing");
+    return waitForThinkingPhase(450, signal);
+  })();
+
+  return {
+    prepareWriting: async () => {
+      if (!writingPromise) {
+        writingPromise = (async () => {
+          const canWrite = await reviewingPromise;
+          if (!canWrite || cancelled) return;
+          updateAssistantThinking(setMessages, assistantId, "writing");
+          await waitForThinkingPhase(450, signal);
+        })();
+      }
+      await writingPromise;
+    },
+    cancel: () => {
+      cancelled = true;
+    },
+  };
+}
+
+function waitForThinkingPhase(delay, signal) {
+  return new Promise((resolve) => {
+    if (signal.aborted) {
+      resolve(false);
+      return;
+    }
+    const timer = window.setTimeout(() => resolve(true), delay);
+    signal.addEventListener(
+      "abort",
+      () => {
+        window.clearTimeout(timer);
+        resolve(false);
+      },
+      { once: true },
+    );
+  });
 }
 
 function updateAssistantThinking(setMessages, assistantId, phase) {
