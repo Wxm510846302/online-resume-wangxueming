@@ -3457,7 +3457,8 @@ section[id] {
 
 .assistant-chat-floating .assistant-messages {
   max-height: min(300px, calc(100vh - 388px));
-  min-height: 196px;
+  /* 浮层消息区随内容收缩，避免短回答与快捷问题之间出现大块空白。 */
+  min-height: 0;
 }
 
 .section {
@@ -4807,7 +4808,8 @@ section[id] {
 
   .assistant-chat-floating .assistant-messages {
     max-height: min(290px, calc(100vh - 372px));
-    min-height: 184px;
+    /* 窄屏底部面板同样按回答内容决定高度，长回答仍由 max-height 滚动。 */
+    min-height: 0;
   }
 
   .section {
