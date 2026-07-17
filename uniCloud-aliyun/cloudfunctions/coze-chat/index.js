@@ -2,6 +2,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { parseCozeAnswer } = require("./cozeAnswerParser");
 
 const COZE_CHAT_URL = "https://api.coze.cn/v3/chat";
 const COZE_SPEECH_URL = "https://api.coze.cn/v1/audio/speech";
@@ -43,10 +44,49 @@ exports.main = async function (event = {}, context = {}) {
   const botId = getBotId();
   const userId = safeId(body.userId) || buildUserId(event);
   const conversationId = safeId(body.conversationId);
+  try {
+    // 首次请求保留多轮会话；若 Coze 偶发只返回 verbose 而没有答案，则用新会话自动重试一次。
+    let chatAttempt = null;
+    try {
+      chatAttempt = await requestCozeChat({ token, botId, userId, question, conversationId });
+    } catch {
+      // 网络中断或上游瞬时错误与空答案采用同一条单次重试路径。
+    }
+    if (!chatAttempt?.answer) {
+      chatAttempt = await requestCozeChat({ token, botId, userId, question, conversationId: "", retry: true });
+    }
+    if (!chatAttempt?.answer) {
+      return response(502, {
+        error: "Coze did not return answer text after retry",
+        detail: "Coze 本次未生成可展示答案，系统已自动重试一次。",
+      }, origin);
+    }
+
+    const { answer, conversationId: nextConversationId } = chatAttempt;
+    if (shouldSaveConversations()) {
+      const record = {
+        timestamp: new Date().toISOString(),
+        ip: getClientIp(event),
+        userAgent: getHeader(event, "user-agent"),
+        userId,
+        botId,
+        conversationId: nextConversationId || conversationId,
+        question,
+        answer,
+      };
+      await saveConversation(record);
+    }
+
+    return response(200, { answer, conversationId: nextConversationId || conversationId }, origin);
+  } catch (error) {
+    return response(502, { error: "Coze API stream failed", detail: error.message }, origin);
+  }
+};
+
+async function requestCozeChat({ token, botId, userId, question, conversationId, retry = false }) {
   const upstreamUrl = conversationId
     ? `${COZE_CHAT_URL}?conversation_id=${encodeURIComponent(conversationId)}`
     : COZE_CHAT_URL;
-
   const cozeRes = await uniCloud.httpclient.request(upstreamUrl, {
     method: "POST",
     contentType: "json",
@@ -69,43 +109,19 @@ exports.main = async function (event = {}, context = {}) {
         },
       ],
       meta_data: {
-        source: "online-resume-wangxueming-unicloud",
+        source: retry
+          ? "online-resume-wangxueming-unicloud-retry"
+          : "online-resume-wangxueming-unicloud",
       },
     },
   });
 
   const rawText = typeof cozeRes.data === "string" ? cozeRes.data : String(cozeRes.data || "");
   if (cozeRes.status >= 400) {
-    return response(cozeRes.status, { error: "Coze API request failed", detail: rawText }, origin);
+    throw new Error(`Coze API request failed (${cozeRes.status})`);
   }
-
-  let chatResult;
-  try {
-    chatResult = parseCozeAnswer(rawText);
-  } catch (error) {
-    return response(502, { error: "Coze API stream failed", detail: error.message }, origin);
-  }
-  const { answer, conversationId: nextConversationId } = chatResult;
-  if (!answer) {
-    return response(502, { error: "Coze did not return answer text" }, origin);
-  }
-
-  if (shouldSaveConversations()) {
-    const record = {
-      timestamp: new Date().toISOString(),
-      ip: getClientIp(event),
-      userAgent: getHeader(event, "user-agent"),
-      userId,
-      botId,
-      conversationId: nextConversationId || conversationId,
-      question,
-      answer,
-    };
-    await saveConversation(record);
-  }
-
-  return response(200, { answer, conversationId: nextConversationId || conversationId }, origin);
-};
+  return parseCozeAnswer(rawText);
+}
 
 async function handleSpeechRequest(body, token, origin) {
   const input = String(body.text || body.input || "").trim().slice(0, MAX_SPEECH_TEXT_LENGTH);
@@ -161,61 +177,6 @@ function parseRequestBody(event) {
     }
   }
   return body && typeof body === "object" ? body : {};
-}
-
-function parseCozeAnswer(text) {
-  let deltaAnswer = "";
-  let completedAnswer = "";
-  let conversationId = "";
-  for (const block of text.split(/\n\n+/)) {
-    const event = readSseField(block, "event");
-    if (
-      event !== "conversation.chat.created" &&
-      event !== "conversation.message.delta" &&
-      event !== "conversation.message.completed" &&
-      event !== "conversation.chat.completed" &&
-      event !== "conversation.chat.failed"
-    ) continue;
-
-    const data = readSseField(block, "data");
-    if (!data || data === "[DONE]") continue;
-
-    try {
-      const payload = JSON.parse(data);
-      if (!conversationId && typeof payload.conversation_id === "string") {
-        conversationId = payload.conversation_id;
-      }
-      if (event === "conversation.chat.failed") {
-        const message = payload.last_error?.msg || payload.error?.message || "Conversation failed";
-        throw new Error(message);
-      }
-      if (
-        payload.role === "assistant" &&
-        payload.type === "answer" &&
-        typeof payload.content === "string"
-      ) {
-        if (event === "conversation.message.completed") {
-          completedAnswer = payload.content;
-        } else {
-          deltaAnswer += payload.content;
-        }
-      }
-    } catch (error) {
-      if (event === "conversation.chat.failed") throw error;
-    }
-  }
-  return {
-    answer: (completedAnswer || deltaAnswer).trim(),
-    conversationId,
-  };
-}
-
-function readSseField(block, fieldName) {
-  return block
-    .split("\n")
-    .filter((line) => line.startsWith(`${fieldName}:`))
-    .map((line) => line.slice(fieldName.length + 1).trimStart())
-    .join("\n");
 }
 
 async function saveConversation(record) {
@@ -290,7 +251,8 @@ function shouldSaveConversations() {
 function getTimeoutMs(key, fallback) {
   const value = Number(getConfigValue(key));
   if (!Number.isFinite(value) || value <= 0) return fallback;
-  return Math.min(Math.max(Math.round(value), 5000), 30000);
+  // 云函数运行上限为 60 秒，聊天请求允许使用完整的 55 秒默认值，避免截断答案事件。
+  return Math.min(Math.max(Math.round(value), 5000), 60000);
 }
 
 function loadLocalEnv() {
