@@ -3251,6 +3251,83 @@ section[id] {
   gap: 7px;
 }
 
+.assistant-thinking {
+  display: grid;
+  justify-items: start;
+  gap: 5px;
+  padding: 1px 5px 0;
+  color: #7a8794;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.assistant-thinking-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  color: #6f7d8b;
+  background: transparent;
+  font: inherit;
+  font-weight: 720;
+  cursor: pointer;
+}
+
+.assistant-thinking-toggle:hover {
+  color: #4f5e6d;
+}
+
+.assistant-thinking-toggle svg:last-child {
+  opacity: 0.72;
+}
+
+.assistant-thinking-steps {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 2px 5px;
+  padding: 1px 0 1px 11px;
+  border-left: 1px solid #dce4eb;
+  list-style: none;
+}
+
+.assistant-thinking-steps li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #8a96a2;
+}
+
+.assistant-thinking-steps li > span {
+  width: 4px;
+  height: 4px;
+  flex: 0 0 4px;
+  border-radius: 50%;
+  background: #c4ced7;
+}
+
+.assistant-thinking-steps li.is-complete {
+  color: #7a8794;
+}
+
+.assistant-thinking-steps li.is-complete > span {
+  background: #9eabb7;
+}
+
+.assistant-thinking-steps li.is-active {
+  color: #5f6d7b;
+}
+
+.assistant-thinking-steps li.is-active > span {
+  background: #7e8d9b;
+  animation: statusPulse 1.1s ease-in-out infinite;
+}
+
+.assistant-thinking.is-finished .assistant-thinking-toggle {
+  color: #7a8794;
+  font-weight: 680;
+}
+
 .assistant-message-actions {
   display: inline-flex;
   justify-self: end;

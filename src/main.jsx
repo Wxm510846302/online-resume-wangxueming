@@ -1842,10 +1842,11 @@ function useAssistantChat() {
     const assistantMessage = {
       id: assistantId,
       role: "assistant",
-      text: "正在思考中",
+      text: "",
       pending: true,
       sourceQuestion: effectiveQuestion,
       sourceUserQuestion: trimmed,
+      thinking: createAssistantThinking(timestamp),
     };
     setMessages((current) => [...current, userMessage, assistantMessage]);
 
@@ -1862,6 +1863,7 @@ function useAssistantChat() {
       if (controller.signal.aborted) return;
       const fallback = getAssistantReply(trimmed);
       const fallbackText = `真实 AI 暂时未连通：${error.message || "请求失败"}\n\n先给你一版本地简历兜底回答：${fallback}`;
+      updateAssistantThinking(setMessages, assistantId, "fallback");
       setServiceState("replying");
       await typeAssistantText(
         assistantId,
@@ -1870,6 +1872,7 @@ function useAssistantChat() {
         controller.signal,
         { error: true },
       );
+      updateAssistantThinking(setMessages, assistantId, "done");
       setServiceState("offline");
     } finally {
       setIsSending(false);
@@ -1941,12 +1944,13 @@ function useAssistantChat() {
     const question = message.sourceQuestion || "请重新介绍一下王学明的技术背景和岗位匹配。";
     setMessages((current) =>
       updateMessage(current, message.id, {
-        text: "正在思考中",
+        text: "",
         pending: true,
         typing: false,
         error: false,
         sourceQuestion: question,
         sourceUserQuestion: message.sourceUserQuestion || question,
+        thinking: createAssistantThinking(),
       }),
     );
     setIsSending(true);
@@ -1963,6 +1967,7 @@ function useAssistantChat() {
       if (controller.signal.aborted) return;
       const fallback = getAssistantReply(question);
       const fallbackText = `真实 AI 暂时未连通：${error.message || "请求失败"}\n\n先给你一版本地简历兜底回答：${fallback}`;
+      updateAssistantThinking(setMessages, message.id, "fallback");
       setServiceState("replying");
       await typeAssistantText(
         message.id,
@@ -1971,6 +1976,7 @@ function useAssistantChat() {
         controller.signal,
         { error: true },
       );
+      updateAssistantThinking(setMessages, message.id, "done");
       setServiceState("offline");
     } finally {
       setIsSending(false);
@@ -2097,7 +2103,8 @@ function AssistantChat({ assistant, compact = false }) {
             </span>
             {message.role === "assistant" ? (
               <div className="assistant-message-content">
-                <AssistantMarkdown text={message.text} typing={message.typing} />
+                {message.thinking ? <AssistantThinkingProcess thinking={message.thinking} /> : null}
+                {message.text ? <AssistantMarkdown text={message.text} typing={message.typing} /> : null}
                 {!message.pending && !message.typing && message.text ? (
                   <AssistantMessageActions
                     copied={copiedMessageId === message.id}
@@ -2196,6 +2203,41 @@ function AssistantIntroStage({ collapsed, hasPlayed, introText, isPreparing, isS
           {collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
         </button>
       </div>
+    </div>
+  );
+}
+
+function AssistantThinkingProcess({ thinking }) {
+  const [expanded, setExpanded] = React.useState(true);
+  const finished = thinking.phase === "writing" || thinking.phase === "done";
+  const duration = formatThinkingDuration(thinking.startedAt, thinking.finishedAt);
+  const steps = getAssistantThinkingSteps(thinking);
+  const summary = finished
+    ? `${thinking.fallback ? "处理完成" : "思考了"} ${duration}`
+    : thinking.phase === "fallback" ? "正在切换回答方式" : "正在思考";
+
+  return (
+    <div className={`assistant-thinking${finished ? " is-finished" : ""}`}>
+      <button
+        className="assistant-thinking-toggle"
+        type="button"
+        onClick={() => setExpanded((current) => !current)}
+        aria-expanded={expanded}
+      >
+        <Sparkles size={12} />
+        <span>{summary}</span>
+        {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+      </button>
+      {expanded ? (
+        <ol className="assistant-thinking-steps" aria-label="回答处理过程">
+          {steps.map((step) => (
+            <li className={step.state} key={step.label}>
+              <span aria-hidden="true" />
+              {step.label}
+            </li>
+          ))}
+        </ol>
+      ) : null}
     </div>
   );
 }
@@ -2328,6 +2370,8 @@ async function streamAssistantReplyFromPath(path, question, assistantId, signal,
     throw new Error(payload?.detail || payload?.error || `HTTP ${response.status}`);
   }
 
+  updateAssistantThinking(setMessages, assistantId, "reviewing");
+
   const contentType = response.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {
     const payload = await response.json();
@@ -2336,8 +2380,10 @@ async function streamAssistantReplyFromPath(path, question, assistantId, signal,
       throw new Error(payload?.error || "AI 接口没有返回可展示内容");
     }
     rememberConversationId(payload?.conversationId || payload?.data?.conversationId);
+    updateAssistantThinking(setMessages, assistantId, "writing");
     setServiceState("replying");
     await typeAssistantText(assistantId, answer, setMessages, signal);
+    updateAssistantThinking(setMessages, assistantId, "done");
     return;
   }
 
@@ -2362,6 +2408,7 @@ async function streamAssistantReplyFromPath(path, question, assistantId, signal,
     if (!text) continue;
 
     hasContent = true;
+    updateAssistantThinking(setMessages, assistantId, "writing");
     setServiceState("replying");
     await typeAssistantText(assistantId, text, setMessages, signal, { append: true });
   }
@@ -2371,6 +2418,7 @@ async function streamAssistantReplyFromPath(path, question, assistantId, signal,
     rememberConversationId(conversationId);
     if (text) {
       hasContent = true;
+      updateAssistantThinking(setMessages, assistantId, "writing");
       setServiceState("replying");
       await typeAssistantText(assistantId, text, setMessages, signal, { append: true });
     }
@@ -2379,6 +2427,8 @@ async function streamAssistantReplyFromPath(path, question, assistantId, signal,
   if (!hasContent) {
     throw new Error("Coze 没有返回可展示内容");
   }
+
+  updateAssistantThinking(setMessages, assistantId, "done");
 }
 
 async function requestCozeSpeech(text, signal) {
@@ -2450,6 +2500,64 @@ function base64ToAudioBlob(value, mimeType) {
     bytes[index] = binary.charCodeAt(index);
   }
   return new Blob([bytes], { type: mimeType });
+}
+
+function createAssistantThinking(startedAt = Date.now()) {
+  return {
+    startedAt,
+    finishedAt: 0,
+    phase: "analyzing",
+    fallback: false,
+  };
+}
+
+function updateAssistantThinking(setMessages, assistantId, phase) {
+  setMessages((current) =>
+    updateMessage(current, assistantId, (message) => {
+      const thinking = message.thinking || createAssistantThinking();
+      return {
+        ...message,
+        thinking: {
+          ...thinking,
+          phase,
+          fallback: thinking.fallback || phase === "fallback",
+          // 首段回答开始生成时即结束“思考计时”，避免把逐字输出耗时算入思考时间。
+          finishedAt: !thinking.finishedAt && (phase === "writing" || phase === "done")
+            ? Date.now()
+            : thinking.finishedAt,
+        },
+      };
+    }),
+  );
+}
+
+function formatThinkingDuration(startedAt, finishedAt) {
+  const durationMs = Math.max(100, (finishedAt || Date.now()) - startedAt);
+  return `${(durationMs / 1000).toFixed(1)} 秒`;
+}
+
+function getAssistantThinkingSteps(thinking) {
+  if (thinking.fallback) {
+    const fallbackSteps = ["理解问题与追问上下文", "AI 服务暂未连通", "切换为本地简历回答"];
+    const activeIndex = thinking.phase === "done" ? fallbackSteps.length : fallbackSteps.length - 1;
+    return fallbackSteps.map((label, index) => ({
+      label,
+      state: index < activeIndex ? "is-complete" : index === activeIndex ? "is-active" : "is-pending",
+    }));
+  }
+
+  const steps = ["理解问题与追问上下文", "等待 AI 分身返回相关信息", "组织为可继续追问的回答"];
+  const phaseIndex = {
+    analyzing: 0,
+    reviewing: 1,
+    writing: 2,
+    done: steps.length,
+  }[thinking.phase] ?? 0;
+
+  return steps.map((label, index) => ({
+    label,
+    state: index < phaseIndex ? "is-complete" : index === phaseIndex ? "is-active" : "is-pending",
+  }));
 }
 
 async function typeAssistantText(
