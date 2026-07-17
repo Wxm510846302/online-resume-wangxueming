@@ -2724,6 +2724,8 @@ section[id] {
   /* 对话框保持整高，中间轨道专门承载可滚动的聊天记录。 */
   grid-template-rows: auto auto minmax(0, 1fr) auto auto;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   margin: 18px 18px 18px 0;
   border: 1px solid rgba(223, 231, 239, 0.9);
   border-radius: 8px;
@@ -2959,13 +2961,20 @@ section[id] {
 
 .assistant-messages {
   display: flex;
-  /* 填满对话框剩余空间，让长回复优先在更大的区域内展示。 */
+  /* 消息只在中间轨道滚动，不允许长回复参与外层对话框的高度计算。 */
   max-height: none;
   min-height: 220px;
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
   padding: 18px;
+}
+
+@media (min-width: 1081px) {
+  .assistant-chat:not(.assistant-chat-floating) {
+    /* 桌面双栏高度只由左侧内容决定，右侧长回复不能撑高整行。 */
+    contain: size;
+  }
 }
 
 .assistant-chat > .assistant-prompt-list {
