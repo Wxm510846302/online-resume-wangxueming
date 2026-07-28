@@ -2916,31 +2916,29 @@ function AIMiniProjectsSection() {
   const pageStart = (agentPage - 1) * agentQuestionPageSize;
   const primaryQuestions = pagedQuestions.slice(pageStart, pageStart + agentQuestionPageSize);
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     const hashTarget = window.location.hash.replace(/^#/, "");
     if (!hashTarget.startsWith(agentQuestionAnchorPrefix)) return undefined;
 
-    // React renders the anchor after the browser's native fragment jump, so restore it after layout settles.
-    let secondFrameId = 0;
-    const firstFrameId = window.requestAnimationFrame(() => {
-      secondFrameId = window.requestAnimationFrame(() => {
-        const target = document.getElementById(hashTarget);
-        if (!target) return;
+    const target = document.getElementById(hashTarget);
+    if (!target) return undefined;
 
-        try {
-          target.scrollIntoView({ behavior: "auto", block: "center" });
-        } catch {
-          // Older WebViews still receive a deterministic offset if scrollIntoView options are unsupported.
-          const targetTop = target.getBoundingClientRect().top + window.scrollY;
-          window.scrollTo(0, Math.max(0, targetTop - 96));
-        }
-      });
-    });
+    // Restore before the first paint and bypass global smooth scrolling so the page never flashes at the top.
+    const root = document.documentElement;
+    const previousScrollBehavior = root.style.scrollBehavior;
+    root.style.scrollBehavior = "auto";
 
-    return () => {
-      window.cancelAnimationFrame(firstFrameId);
-      window.cancelAnimationFrame(secondFrameId);
-    };
+    try {
+      target.scrollIntoView({ behavior: "auto", block: "center" });
+    } catch {
+      // Older WebViews still receive a deterministic offset if scrollIntoView options are unsupported.
+      const targetTop = target.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo(0, Math.max(0, targetTop - 96));
+    } finally {
+      root.style.scrollBehavior = previousScrollBehavior;
+    }
+
+    return undefined;
   }, [agentPage]);
 
   return (
