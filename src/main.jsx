@@ -715,6 +715,29 @@ const agentQuestions = [
 ];
 
 const agentQuestionMap = new Map(agentQuestions.map((item) => [item.slug, item]));
+const agentQuestionAnchorPrefix = "agent-question-";
+const featuredAgentQuestionCount = 4;
+const agentQuestionPageSize = 8;
+
+// Keep the return target stable so a detail page can restore the exact question, including paginated items.
+function getAgentQuestionAnchorId(slug) {
+  return `${agentQuestionAnchorPrefix}${slug}`;
+}
+
+// Derive the FAQ page from the return anchor before rendering, avoiding a flash of the first page.
+function getInitialAgentQuestionPage() {
+  const hashTarget = window.location.hash.replace(/^#/, "");
+  if (!hashTarget.startsWith(agentQuestionAnchorPrefix)) return 1;
+
+  const targetSlug = hashTarget.slice(agentQuestionAnchorPrefix.length);
+  const pagedQuestionIndex = agentQuestions
+    .slice(featuredAgentQuestionCount)
+    .findIndex((item) => item.slug === targetSlug);
+
+  return pagedQuestionIndex >= 0
+    ? Math.floor(pagedQuestionIndex / agentQuestionPageSize) + 1
+    : 1;
+}
 
 const agentDeepDiveByDiagram = {
   json: {
@@ -2886,13 +2909,39 @@ function ProjectCard({ project, index }) {
 }
 
 function AIMiniProjectsSection() {
-  const featuredQuestions = agentQuestions.slice(0, 4);
-  const pagedQuestions = agentQuestions.slice(4);
-  const pageSize = 8;
-  const totalPages = Math.ceil(pagedQuestions.length / pageSize);
-  const [agentPage, setAgentPage] = React.useState(1);
-  const pageStart = (agentPage - 1) * pageSize;
-  const primaryQuestions = pagedQuestions.slice(pageStart, pageStart + pageSize);
+  const featuredQuestions = agentQuestions.slice(0, featuredAgentQuestionCount);
+  const pagedQuestions = agentQuestions.slice(featuredAgentQuestionCount);
+  const totalPages = Math.ceil(pagedQuestions.length / agentQuestionPageSize);
+  const [agentPage, setAgentPage] = React.useState(getInitialAgentQuestionPage);
+  const pageStart = (agentPage - 1) * agentQuestionPageSize;
+  const primaryQuestions = pagedQuestions.slice(pageStart, pageStart + agentQuestionPageSize);
+
+  React.useEffect(() => {
+    const hashTarget = window.location.hash.replace(/^#/, "");
+    if (!hashTarget.startsWith(agentQuestionAnchorPrefix)) return undefined;
+
+    // React renders the anchor after the browser's native fragment jump, so restore it after layout settles.
+    let secondFrameId = 0;
+    const firstFrameId = window.requestAnimationFrame(() => {
+      secondFrameId = window.requestAnimationFrame(() => {
+        const target = document.getElementById(hashTarget);
+        if (!target) return;
+
+        try {
+          target.scrollIntoView({ behavior: "auto", block: "center" });
+        } catch {
+          // Older WebViews still receive a deterministic offset if scrollIntoView options are unsupported.
+          const targetTop = target.getBoundingClientRect().top + window.scrollY;
+          window.scrollTo(0, Math.max(0, targetTop - 96));
+        }
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(firstFrameId);
+      window.cancelAnimationFrame(secondFrameId);
+    };
+  }, [agentPage]);
 
   return (
     <section className="ai-lab-section section" id="ai-lab">
@@ -2946,7 +2995,12 @@ function AIMiniProjectsSection() {
           </div>
           <div className="agent-feature-grid">
             {featuredQuestions.map((item, index) => (
-              <a className="agent-feature-card" href={`${basePath}/agent/${item.slug}`} key={item.slug}>
+              <a
+                className="agent-feature-card"
+                href={`${basePath}/agent/${item.slug}`}
+                id={getAgentQuestionAnchorId(item.slug)}
+                key={item.slug}
+              >
                 <span className="agent-feature-index">{String(index + 1).padStart(2, "0")}</span>
                 <em>{item.category}</em>
                 <strong>{item.question}</strong>
@@ -2957,7 +3011,12 @@ function AIMiniProjectsSection() {
           </div>
           <div className="agent-question-list" aria-label="Agent 更多常见问题">
             {primaryQuestions.map((item, index) => (
-              <a className="agent-question-item" href={`${basePath}/agent/${item.slug}`} key={item.slug}>
+              <a
+                className="agent-question-item"
+                href={`${basePath}/agent/${item.slug}`}
+                id={getAgentQuestionAnchorId(item.slug)}
+                key={item.slug}
+              >
                 <span>{String(pageStart + index + 5).padStart(2, "0")}</span>
                 <div>
                   <strong>{item.question}</strong>
@@ -3075,7 +3134,7 @@ function AgentQuestionPage({ item, auth }) {
   return (
     <>
       <header className="detail-header agent-detail-header">
-        <a href={`${basePath}/#ai-lab`} className="back-link"><ArrowLeft size={18} /> 返回 AI 实验室</a>
+        <a href={`${basePath}/#${getAgentQuestionAnchorId(item.slug)}`} className="back-link"><ArrowLeft size={18} /> 返回 AI 实验室</a>
       </header>
       <main className="agent-detail-main">
         <section className="agent-detail-hero">
