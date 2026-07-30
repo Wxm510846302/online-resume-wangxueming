@@ -1,6 +1,7 @@
 const API_ENV_STORAGE_KEY = "kkhc_api_env";
 const THEME_STORAGE_KEY = "kkhc_theme_mode";
 const AUTH_STORAGE_KEY = "kkhc_auth_session";
+const APP_CONFIG_CENTER_API_BASE_URL = "https://fc-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/app-config-center-api";
 const LANDING_H5_BASE_STORAGE_KEY = "kkhc_landing_h5_base";
 const AUTH_ACCOUNTS = [
   {
@@ -10,7 +11,7 @@ const AUTH_ACCOUNTS = [
     role: "最高权限管理员",
     permission: "super_admin",
     defaultView: "rules",
-    allowedViews: ["rules", "feedback", "landing", "h5Activity", "pianoPractice", "shareMaterials", "pushTool"],
+    allowedViews: ["rules", "feedback", "landing", "h5Activity", "questionnaire", "pianoPractice", "shareMaterials", "pushTool", "appConfigCenter"],
   },
   {
     accountId: "user-kk",
@@ -313,7 +314,7 @@ function getStoredApiEnv() {
 
 function getStoredTheme() {
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-  return stored === "dark" ? "dark" : "light";
+  return stored === "light" ? "light" : "dark";
 }
 
 function getStoredLandingH5Base() {
@@ -352,7 +353,15 @@ function getStoredAuth() {
     const parsed = JSON.parse(raw);
     const legacyAccountId = parsed?.permission === "super_admin" ? "admin-dz" : null;
     const account = getAuthAccountById(parsed?.accountId || legacyAccountId);
-    if (parsed?.authType === "hashed_local" && account) return hydrateAuthUser(account, parsed?.username);
+    if (parsed?.authType === "hashed_local" && account) {
+      const user = hydrateAuthUser(account, parsed?.username);
+      // 云端令牌过期后不再恢复，避免配置中心携带失效凭据重复请求。
+      if (parsed.appConfigToken && Number(parsed.appConfigTokenExpiresAt) > Date.now()) {
+        user.appConfigToken = parsed.appConfigToken;
+        user.appConfigTokenExpiresAt = Number(parsed.appConfigTokenExpiresAt);
+      }
+      return user;
+    }
   } catch (error) {
     // ignore invalid auth cache
   }
@@ -447,10 +456,14 @@ const feedbackPage = document.querySelector("#feedbackPage");
 const landingPage = document.querySelector("#landingPage");
 const h5ActivityPage = document.querySelector("#h5ActivityPage");
 const h5ActivityFrame = document.querySelector("#h5ActivityFrame");
+const questionnairePage = document.querySelector("#questionnairePage");
+const questionnaireFrame = document.querySelector("#questionnaireFrame");
 const pianoPracticePage = document.querySelector("#pianoPracticePage");
 const pianoPracticeFrame = document.querySelector("#pianoPracticeFrame");
 const pushToolPage = document.querySelector("#pushToolPage");
 const pushToolFrame = document.querySelector("#pushToolFrame");
+const appConfigCenterPage = document.querySelector("#appConfigCenterPage");
+const appConfigCenterFrame = document.querySelector("#appConfigCenterFrame");
 const shareMaterialsPage = document.querySelector("#shareMaterialsPage");
 const landingOverview = document.querySelector("#landingOverview");
 const listView = document.querySelector("#listView");
@@ -765,7 +778,7 @@ function getAllowedViews(user = state.authUser) {
   if (Array.isArray(user?.allowedViews) && user.allowedViews.length) {
     return user.allowedViews;
   }
-  return ["rules", "feedback", "landing", "h5Activity", "pianoPractice", "shareMaterials", "pushTool"];
+  return ["rules", "feedback", "landing", "h5Activity", "questionnaire", "pianoPractice", "shareMaterials", "pushTool", "appConfigCenter"];
 }
 
 function canAccessView(view, user = state.authUser) {
@@ -807,7 +820,7 @@ function renderAuthState() {
 
 async function sha256Hex(input) {
   if (!window.crypto?.subtle) {
-    throw new Error("当前环境不支持安全登录校验，请在 HTTPS 或 localhost 环境打开");
+    throw new Error("当前环境不支持安全登录校验，请在 HTTPS 环境打开");
   }
   const bytes = new TextEncoder().encode(input);
   const digest = await window.crypto.subtle.digest("SHA-256", bytes);
@@ -859,9 +872,30 @@ async function handleLogin(event) {
     return;
   }
 
+  let appConfigCloudSession = null;
+  if (matchedAccount.permission === "super_admin") {
+    try {
+      const response = await fetch(`${APP_CONFIG_CENTER_API_BASE_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.token) throw new Error(data.message || "云端认证失败");
+      appConfigCloudSession = data;
+    } catch (error) {
+      // 不阻断原后台登录，仅提示配置中心暂不可用，避免云服务异常影响其它运营工具。
+      showToast(`App运营配置中心认证失败：${error.message}`, "error");
+    }
+  }
+
   state.authUser = {
     ...hydrateAuthUser(matchedAccount, username),
     loggedInAt: new Date().toISOString(),
+    ...(appConfigCloudSession ? {
+      appConfigToken: appConfigCloudSession.token,
+      appConfigTokenExpiresAt: appConfigCloudSession.expiresAt,
+    } : {}),
   };
   state.currentView = matchedAccount.defaultView;
   persistAuthSession(state.authUser);
@@ -5357,9 +5391,11 @@ function syncViewState() {
   const isFeedbackView = state.currentView === "feedback";
   const isLandingView = state.currentView === "landing";
   const isH5ActivityView = state.currentView === "h5Activity";
+  const isQuestionnaireView = state.currentView === "questionnaire";
   const isPianoPracticeView = state.currentView === "pianoPractice";
   const isShareMaterialsView = state.currentView === "shareMaterials";
   const isPushToolView = state.currentView === "pushTool";
+  const isAppConfigCenterView = state.currentView === "appConfigCenter";
   const titles = {
     rules: {
       title: "自定义人群包",
@@ -5377,6 +5413,10 @@ function syncViewState() {
       title: "H5 活动配置",
       subtitle: "配置活动样式、分享素材与互动字段",
     },
+    questionnaire: {
+      title: "问卷管理",
+      subtitle: "配置动态题目、发布问卷并查看用户答卷",
+    },
     pianoPractice: {
       title: "钢琴练习工具",
       subtitle: "曲目管理、练习记录与全局音源配置",
@@ -5389,6 +5429,10 @@ function syncViewState() {
       title: "Push 发送工具",
       subtitle: "上传 Excel 批量推送消息，支持定时发送与演练模式",
     },
+    appConfigCenter: {
+      title: "App运营配置中心",
+      subtitle: "通过业务表单生成配置并保留上传记录",
+    },
   };
   pageTitle.textContent = titles[state.currentView].title;
   pageSubtitle.textContent = titles[state.currentView].subtitle;
@@ -5396,12 +5440,16 @@ function syncViewState() {
   feedbackPage.classList.toggle("hidden", !isFeedbackView);
   landingPage?.classList.toggle("hidden", !isLandingView);
   h5ActivityPage?.classList.toggle("hidden", !isH5ActivityView);
+  questionnairePage?.classList.toggle("hidden", !isQuestionnaireView);
   pianoPracticePage?.classList.toggle("hidden", !isPianoPracticeView);
   shareMaterialsPage?.classList.toggle("hidden", !isShareMaterialsView);
   pushToolPage?.classList.toggle("hidden", !isPushToolView);
+  appConfigCenterPage?.classList.toggle("hidden", !isAppConfigCenterView);
   if (isH5ActivityView) syncH5ActivityFrame();
+  if (isQuestionnaireView) syncQuestionnaireFrame();
   if (isPianoPracticeView) syncPianoPracticeFrame();
   if (isPushToolView) syncPushToolFrame();
+  if (isAppConfigCenterView) syncAppConfigCenterFrame();
   if (!isRulesView) formView.classList.add("hidden");
   if (!isLandingView) {
     landingFormView?.classList.add("hidden");
@@ -5456,6 +5504,14 @@ function switchView(view) {
     landingListView?.classList.remove("hidden");
     resetFormMode();
     syncH5ActivityFrame();
+  } else if (view === "questionnaire") {
+    formView.classList.add("hidden");
+    listView.classList.remove("hidden");
+    landingFormView?.classList.add("hidden");
+    landingOverview?.classList.remove("hidden");
+    landingListView?.classList.remove("hidden");
+    resetFormMode();
+    syncQuestionnaireFrame();
   } else if (view === "pianoPractice") {
     formView.classList.add("hidden");
     listView.classList.remove("hidden");
@@ -5472,6 +5528,15 @@ function switchView(view) {
     landingListView?.classList.remove("hidden");
     resetFormMode();
     syncPushToolFrame();
+  } else if (view === "appConfigCenter") {
+    // 配置中心独立运行，切换入口时只同步宿主主题，不触发人群包接口刷新。
+    formView.classList.add("hidden");
+    listView.classList.add("hidden");
+    landingFormView?.classList.add("hidden");
+    landingOverview?.classList.remove("hidden");
+    landingListView?.classList.remove("hidden");
+    resetFormMode();
+    syncAppConfigCenterFrame();
   } else {
     landingFormView?.classList.add("hidden");
     landingOverview?.classList.remove("hidden");
@@ -5557,6 +5622,36 @@ function syncH5ActivityFrame() {
   if (currentSrc !== nextSrc) h5ActivityFrame.setAttribute("src", nextSrc);
 }
 
+const QUESTIONNAIRE_ADMIN_PATH = "./questionnaire-admin/index.html";
+const QUESTIONNAIRE_ADMIN_VERSION = "20260730-1";
+function postQuestionnaireConfigToFrame() {
+  questionnaireFrame?.contentWindow?.postMessage({
+    type: "kkhc-questionnaire-config",
+    theme: state.theme,
+    env: state.apiEnv,
+  }, getFrameMessageTargetOrigin());
+}
+
+function syncQuestionnaireFrame() {
+  if (!questionnaireFrame) return;
+  const nextSrc = `${QUESTIONNAIRE_ADMIN_PATH}?env=${encodeURIComponent(state.apiEnv)}&theme=${encodeURIComponent(state.theme)}&v=${QUESTIONNAIRE_ADMIN_VERSION}`;
+  const currentSrc = questionnaireFrame.getAttribute("src") || "";
+  let isCurrentFrame = false;
+  try {
+    const currentUrl = new URL(currentSrc, window.location.href);
+    isCurrentFrame = currentUrl.pathname.endsWith("/questionnaire-admin/index.html")
+      && currentUrl.searchParams.get("v") === QUESTIONNAIRE_ADMIN_VERSION
+      && currentUrl.searchParams.get("env") === state.apiEnv;
+  } catch (error) {
+    isCurrentFrame = false;
+  }
+  if (!isCurrentFrame) {
+    questionnaireFrame.setAttribute("src", nextSrc);
+    return;
+  }
+  postQuestionnaireConfigToFrame();
+}
+
 const PUSH_TOOL_PATH = "./push-tool/index.html";
 const PUSH_TOOL_VERSION = "202607011620";
 function getFrameMessageTargetOrigin() {
@@ -5611,10 +5706,23 @@ function syncPianoPracticeFrame() {
   postThemeToFrame(pianoPracticeFrame);
 }
 
+function syncAppConfigCenterFrame() {
+  if (!appConfigCenterFrame) return;
+  // 同步主题和短期云端令牌，避免把管理员密码或固定密钥放入静态页面。
+  appConfigCenterFrame.contentWindow?.postMessage({
+    type: "kkhc-app-config-context",
+    theme: state.theme,
+    token: state.authUser?.appConfigToken || "",
+    tokenExpiresAt: state.authUser?.appConfigTokenExpiresAt || 0,
+  }, getFrameMessageTargetOrigin());
+}
+
 function applyTheme() {
   document.body.classList.toggle("theme-light", state.theme === "light");
+  syncQuestionnaireFrame();
   syncPianoPracticeFrame();
   syncPushToolFrame();
+  syncAppConfigCenterFrame();
   if (!themeToggleBtn) return;
   themeToggleBtn.textContent = state.theme === "light" ? "切换到暗黑模式" : "切换到浅色模式";
   themeToggleBtn.setAttribute("aria-pressed", state.theme === "light" ? "true" : "false");
@@ -7305,6 +7413,10 @@ dataSourceToggleBtn.addEventListener("click", async () => {
       syncH5ActivityFrame();
       return;
     }
+    if (state.currentView === "questionnaire") {
+      syncQuestionnaireFrame();
+      return;
+    }
     if (state.currentView === "pushTool") {
       syncPushToolFrame();
       return;
@@ -7371,6 +7483,14 @@ if (themeToggleBtn) {
 
 pushToolFrame?.addEventListener("load", () => {
   syncPushToolFrame();
+});
+
+questionnaireFrame?.addEventListener("load", () => {
+  postQuestionnaireConfigToFrame();
+});
+
+appConfigCenterFrame?.addEventListener("load", () => {
+  syncAppConfigCenterFrame();
 });
 
 applyTheme();

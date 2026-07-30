@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>问卷管理</title>
+    <link rel="icon" href="../favicon.png" />
+    <link rel="stylesheet" href="./styles.css?v=20260716-5" />
+  </head>
+  <body>
+    <main class="admin-shell">
+      <header class="page-header">
+        <div>
+          <h1>问卷管理</h1>
+          <p>配置动态题目、管理发布状态并查看用户答卷</p>
+        </div>
+        <div class="header-actions">
+          <span id="envBadge" class="env-badge">测试环境</span>
+          <button id="tokenBtn" class="btn btn-secondary" type="button">联调令牌</button>
+          <button id="newQuestionnaireBtn" class="btn btn-primary" type="button">新建问卷</button>
+        </div>
+      </header>
+
+      <section id="configWarning" class="notice notice-warning hidden" role="alert"></section>
+      <section id="toast" class="toast hidden" role="status" aria-live="polite"></section>
+
+      <section id="listScreen" class="screen">
+        <section class="panel mini-config-panel" aria-labelledby="miniProgramConfigTitle">
+          <div class="mini-config-summary">
+            <span id="miniProgramConfigTitle" class="mini-config-kicker">小程序当前展示</span>
+            <strong id="currentMiniQuestionnaireName">读取中…</strong>
+            <p id="currentMiniQuestionnaireMeta">小程序入口和页面标题会自动使用这里生效的问卷名称。</p>
+          </div>
+          <div class="mini-config-controls">
+            <label>
+              <span>选择展示方式</span>
+              <select id="miniQuestionnaireSelect" aria-label="选择小程序展示问卷"></select>
+            </label>
+            <button id="saveMiniQuestionnaireBtn" class="btn btn-primary" type="button">保存配置</button>
+          </div>
+          <div id="miniProgramConfigError" class="mini-config-error hidden" role="alert">
+            <span id="miniProgramConfigErrorMessage"></span>
+            <button id="retryMiniProgramConfigBtn" class="btn btn-text" type="button">重试</button>
+          </div>
+        </section>
+
+        <form id="filterForm" class="panel filter-bar">
+          <label>
+            <span>问卷名称</span>
+            <input id="keywordInput" maxlength="100" placeholder="输入名称搜索" />
+          </label>
+          <label>
+            <span>状态</span>
+            <select id="statusFilter">
+              <option value="">全部状态</option>
+              <option value="DRAFT">草稿</option>
+              <option value="PUBLISHED">已发布</option>
+              <option value="CLOSED">已下线</option>
+            </select>
+          </label>
+          <div class="filter-actions">
+            <button class="btn btn-primary" type="submit">查询</button>
+            <button id="resetFilterBtn" class="btn btn-secondary" type="button">重置</button>
+          </div>
+        </form>
+
+        <section class="panel table-panel">
+          <div id="listLoading" class="state-block hidden"><span class="loader"></span><p>正在加载问卷…</p></div>
+          <div id="listError" class="state-block state-error hidden"><strong>加载失败</strong><p id="listErrorMessage"></p><button id="retryListBtn" class="btn btn-secondary" type="button">重试</button></div>
+          <div id="listEmpty" class="state-block hidden"><strong>暂无问卷</strong><p>可以新建第一份动态问卷</p></div>
+          <div id="listTableWrap" class="table-wrap hidden">
+            <table>
+              <thead><tr><th>问卷名称</th><th>状态</th><th>题目 / 答卷</th><th>更新时间</th><th>发布时间</th><th>操作</th></tr></thead>
+              <tbody id="questionnaireRows"></tbody>
+            </table>
+          </div>
+          <footer id="listPager" class="pager hidden">
+            <span id="listTotal">共 0 条</span>
+            <div><button id="listPrevBtn" class="btn btn-secondary" type="button">上一页</button><span id="listPageInfo">1 / 1</span><button id="listNextBtn" class="btn btn-secondary" type="button">下一页</button></div>
+          </footer>
+        </section>
+      </section>
+
+      <section id="editorScreen" class="screen hidden">
+        <div class="screen-toolbar">
+          <button id="backFromEditorBtn" class="btn btn-secondary" type="button">返回列表</button>
+          <div class="toolbar-title"><strong id="editorHeading">编辑问卷</strong><span id="editorStatusBadge" class="status-badge"></span></div>
+          <div class="toolbar-actions">
+            <button id="saveQuestionnaireBtn" class="btn btn-primary" type="button">保存草稿</button>
+            <button id="publishFromEditorBtn" class="btn btn-success" type="button">发布问卷</button>
+          </div>
+        </div>
+        <div id="editorLoading" class="panel state-block hidden"><span class="loader"></span><p>正在加载问卷配置…</p></div>
+        <div id="editorError" class="panel state-block state-error hidden"><strong>加载失败</strong><p id="editorErrorMessage"></p><button id="retryEditorBtn" class="btn btn-secondary" type="button">重试</button></div>
+        <div id="editorContent" class="editor-layout hidden">
+          <aside class="panel editor-sidebar">
+            <label class="field"><span>问卷标题 <em>*</em></span><input id="titleInput" maxlength="100" /></label>
+            <p id="titleError" class="field-error"></p>
+            <label class="field"><span>问卷说明</span><textarea id="descriptionInput" rows="5" maxlength="1000"></textarea><small><span id="descriptionCount">0</span> / 1000</small></label>
+            <!-- 问卷级提交上限控制每个用户最多可成功提交的答卷数。 -->
+            <label class="field"><span>每个用户最多提交次数 <em>*</em></span><input id="maxSubmissionsInput" type="number" min="1" max="100" value="1" /><small>支持 1–100 次，删除答卷会释放对应次数</small></label>
+            <p id="maxSubmissionsError" class="field-error"></p>
+            <div class="sidebar-divider"></div>
+            <div class="section-heading"><strong>题目导航</strong><span id="questionCount">0 / 100</span></div>
+            <nav id="questionNav" class="question-nav"></nav>
+            <button id="addQuestionBtn" class="btn btn-secondary full-width" type="button">新增题目</button>
+          </aside>
+          <section class="editor-main">
+            <div id="publishedNotice" class="notice notice-info hidden">已发布问卷为只读状态，请先在列表中下线后再编辑。</div>
+            <div id="questionEditorList" class="question-editor-list"></div>
+            <div id="questionEmpty" class="panel state-block"><strong>还没有题目</strong><p>新增单选、多选、文本或图片题后即可保存草稿。</p><button id="addFirstQuestionBtn" class="btn btn-primary" type="button">新增第一题</button></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="responsesScreen" class="screen hidden">
+        <div class="screen-toolbar">
+          <button id="backFromResponsesBtn" class="btn btn-secondary" type="button">返回问卷列表</button>
+          <div class="toolbar-title"><strong id="responsesHeading">答卷列表</strong><span id="responsesCount" class="subtle"></span></div>
+        </div>
+        <form id="responseFilterForm" class="panel filter-bar response-filter">
+          <label><span>用户 ID</span><input id="responseUserIdInput" type="search" maxlength="200" placeholder="输入完整或部分用户 ID" /></label>
+          <label><span>提交开始时间</span><input id="submittedFromInput" type="datetime-local" /></label>
+          <label><span>提交结束时间</span><input id="submittedToInput" type="datetime-local" /></label>
+          <div class="filter-actions"><button class="btn btn-primary" type="submit">查询</button><button id="resetResponseFilterBtn" class="btn btn-secondary" type="button">重置</button></div>
+        </form>
+        <div class="responses-layout">
+          <section class="panel response-list-panel">
+            <div id="responsesLoading" class="state-block hidden"><span class="loader"></span><p>正在加载答卷…</p></div>
+            <div id="responsesError" class="state-block state-error hidden"><strong>加载失败</strong><p id="responsesErrorMessage"></p><button id="retryResponsesBtn" class="btn btn-secondary" type="button">重试</button></div>
+            <div id="responsesEmpty" class="state-block hidden"><strong>暂无答卷</strong><p>当前筛选条件下还没有用户提交。</p></div>
+            <div id="responseItems" class="response-items"></div>
+            <footer id="responsesPager" class="pager hidden"><span id="responsesPageInfo">1 / 1</span><div><button id="responsesPrevBtn" class="btn btn-secondary" type="button">上一页</button><button id="responsesNextBtn" class="btn btn-secondary" type="button">下一页</button></div></footer>
+          </section>
+          <section class="panel response-detail-panel">
+            <div id="responseDetailPlaceholder" class="state-block"><strong>选择一份答卷</strong><p>右侧将按提交时快照展示完整答案。</p></div>
+            <div id="responseDetailLoading" class="state-block hidden"><span class="loader"></span><p>正在加载答卷详情…</p></div>
+            <div id="responseDetailError" class="state-block state-error hidden"><strong>详情加载失败</strong><p id="responseDetailErrorMessage"></p></div>
+            <article id="responseDetail" class="response-detail hidden"></article>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <div id="confirmModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <div class="modal-backdrop"></div>
+      <div class="modal-card">
+        <h2 id="confirmTitle">确认操作</h2><p id="confirmMessage"></p>
+        <div class="modal-actions"><button id="confirmCancelBtn" class="btn btn-secondary" type="button">取消</button><button id="confirmOkBtn" class="btn btn-danger" type="button">确认</button></div>
+      </div>
+    </div>
+    <div id="tokenModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="tokenModalTitle">
+      <div class="modal-backdrop"></div>
+      <div class="modal-card">
+        <h2 id="tokenModalTitle">本地联调令牌</h2><p>令牌只保存在当前浏览器 localStorage，不会放入 URL。</p>
+        <label class="field"><span>X-Admin-Token</span><input id="tokenInput" type="password" autocomplete="off" placeholder="留空恢复本地默认值" /></label>
+        <div class="modal-actions"><button id="tokenCancelBtn" class="btn btn-secondary" type="button">取消</button><button id="tokenSaveBtn" class="btn btn-primary" type="button">保存</button></div>
+      </div>
+    </div>
+    <div id="imageModal" class="modal image-modal hidden" role="dialog" aria-modal="true" aria-label="查看答卷原图">
+      <div class="modal-backdrop"></div><button id="closeImageBtn" class="image-close" type="button" aria-label="关闭">×</button><img id="fullImage" alt="答卷原图" />
+    </div>
+
+    <script src="./api.js?v=20260730-1"></script>
+    <script src="./app.js?v=20260730-1"></script>
+  </body>
+</html>

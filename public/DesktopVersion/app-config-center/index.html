@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>App运营配置中心</title>
+    <link rel="stylesheet" href="./styles.css?v=20260721-4" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <main class="main">
+        <header class="topbar">
+          <div class="topbar-primary">
+            <div class="topbar-heading">
+              <div id="breadcrumb" class="breadcrumb">配置管理</div>
+              <h1 id="page-title">App运营配置中心</h1>
+            </div>
+            <!-- 一级功能改为横向页签，避免在嵌入页中重复占用整列空间。 -->
+            <nav class="topbar-tabs" aria-label="配置中心功能切换">
+              <a href="#/records" data-nav="records">配置记录</a>
+              <a href="#/upload" data-nav="upload">上传配置</a>
+            </nav>
+          </div>
+          <div class="topbar-actions">
+            <span id="service-status" class="status-dot">检查中</span>
+            <button class="button back-button" id="quick-create" hidden>
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11.75 5.5 7.25 10l4.5 4.5M7.5 10h7.25" /></svg>
+              返回配置场景
+            </button>
+          </div>
+        </header>
+        <section id="view" class="view"></section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast" hidden></div>
+    <div id="modal-root"></div>
+    <script src="./config.js?v=20260721-2"></script>
+    <!-- 使用普通脚本以兼容直接通过 file:// 双击打开 DesktopVersion。 -->
+    <script src="./app.js?v=20260721-8"></script>
+  </body>
+</html>

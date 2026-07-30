@@ -6,6 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>自定义人群包管理</title>
     <script>
+      (function redirectLocalFileToProduction() {
+        // file:// 没有可供生产 CORS 校验的可信来源，本地双击时直接进入正式 HTTPS 站点。
+        if (window.location.protocol !== "file:") return;
+        window.location.replace("https://static-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/DesktopVersion/index.html");
+      }());
+    </script>
+    <script>
       (function hydrateSessionFlag() {
         const AUTH_STORAGE_KEY = "kkhc_auth_session";
         try {
@@ -29,7 +36,7 @@
     <link rel="apple-touch-icon" href="./favicon.png?v=202604101520" />
     <link rel="stylesheet" href="./styles.css?v=202606231030" />
   </head>
-  <body class="theme-light"><script>
+  <body><script>
 with(document)with(body)with(insertBefore(createElement("script"),firstChild))setAttribute("exparams","category=&userid=&aplus&yunid=&&trid=781bad7017800525712791156e00b4&asid=AQAAAABbchlq9D13TwAAAACnU81Pyz/XbA==",id="tb-beacon-aplus",src=(location>"https"?"//g":"//g")+".alicdn.com/alilog/mlog/aplus_v2.js")
 </script>
 
@@ -80,9 +87,11 @@ with(document)with(body)with(insertBefore(createElement("script"),firstChild))se
           <li class="nav-item" data-view="feedback">问题反馈</li>
           <li class="nav-item" data-view="landing">领取落地页配置</li>
           <li class="nav-item" data-view="h5Activity">H5 活动配置</li>
+          <li class="nav-item" data-view="questionnaire">问卷管理</li>
           <li class="nav-item" data-view="pianoPractice">钢琴练习工具</li>
           <li class="nav-item" data-view="shareMaterials">作业分享素材</li>
           <li class="nav-item" data-view="pushTool">Push 发送工具</li>
+          <li class="nav-item" data-view="appConfigCenter">App运营配置中心</li>
           <!-- <li>活动管理</li> -->
           <!-- <li>系统设置</li> -->
         </ul>
@@ -858,6 +867,17 @@ with(document)with(body)with(insertBefore(createElement("script"),firstChild))se
           </section>
         </section>
 
+        <section id="questionnairePage" class="view-page hidden">
+          <section class="panel embedded-tool-panel">
+            <iframe
+              id="questionnaireFrame"
+              class="embedded-tool-frame"
+              title="问卷管理"
+              src="./questionnaire-admin/index.html?env=test&theme=dark&v=20260730-1"
+            ></iframe>
+          </section>
+        </section>
+
         <section id="pianoPracticePage" class="view-page hidden">
           <section class="panel embedded-tool-panel">
             <iframe
@@ -876,6 +896,17 @@ with(document)with(body)with(insertBefore(createElement("script"),firstChild))se
               class="embedded-tool-frame"
               title="Push 发送工具"
               src="./push-tool/index.html?theme=dark&env=prod&v=202607011620"
+            ></iframe>
+          </section>
+        </section>
+
+        <section id="appConfigCenterPage" class="view-page hidden">
+          <section class="panel embedded-tool-panel">
+            <iframe
+              id="appConfigCenterFrame"
+              class="embedded-tool-frame"
+              title="App运营配置中心"
+              src="./app-config-center/index.html?embed=desktop&v=20260721-9"
             ></iframe>
           </section>
         </section>
@@ -978,6 +1009,6 @@ with(document)with(body)with(insertBefore(createElement("script"),firstChild))se
       </div>
     </template>
 
-    <script src="./script.js?v=202607011620"></script>
+    <script src="./script.js?v=202607291023"></script>
   </body>
 </html>
