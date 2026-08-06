@@ -2117,7 +2117,6 @@ function AssistantChat({ assistant, compact = false }) {
   const [introCollapsed, setIntroCollapsed] = React.useState(false);
   const chatLogRef = React.useRef(null);
   const inputRef = React.useRef(null);
-  const lastScrollTopRef = React.useRef(0);
   const {
     ask,
     clearFollowUpContext,
@@ -2142,7 +2141,6 @@ function AssistantChat({ assistant, compact = false }) {
     const log = chatLogRef.current;
     if (log) {
       log.scrollTop = log.scrollHeight;
-      lastScrollTopRef.current = log.scrollTop;
     }
   }, [messages]);
 
@@ -2162,21 +2160,6 @@ function AssistantChat({ assistant, compact = false }) {
       inputRef.current.value = "";
     }
   };
-
-  const handleMessageScroll = React.useCallback((event) => {
-    const nextScrollTop = event.currentTarget.scrollTop;
-    const delta = nextScrollTop - lastScrollTopRef.current;
-
-    if (Math.abs(delta) < 12) return;
-
-    if (delta > 0) {
-      setIntroCollapsed(true);
-    } else {
-      setIntroCollapsed(false);
-    }
-
-    lastScrollTopRef.current = nextScrollTop;
-  }, []);
 
   return (
     <div className={compact ? "assistant-chat assistant-chat-floating" : "assistant-chat"} aria-label="AI 虚拟分身聊天窗口">
@@ -2201,7 +2184,7 @@ function AssistantChat({ assistant, compact = false }) {
         onPlayIntro={playIntro}
         onToggleCollapsed={() => setIntroCollapsed((current) => !current)}
       />
-      <div className="assistant-messages" ref={chatLogRef} onScroll={handleMessageScroll} aria-live="polite">
+      <div className="assistant-messages" ref={chatLogRef} aria-live="polite">
         {messages.map((message) => (
           <div className={`assistant-message ${message.role}${message.error ? " is-error" : ""}${message.pending ? " is-pending" : ""}${message.typing ? " is-typing" : ""}`} key={message.id}>
             <span className="assistant-avatar">
@@ -2284,7 +2267,7 @@ function AssistantIntroStage({ collapsed, hasPlayed, introText, isPreparing, isS
           <span />
           <span />
         </div>
-        <p>{collapsed ? "自我介绍已收起，向下滚动聊天记录或点击右侧按钮可展开。" : introText}</p>
+        <p>{collapsed ? "自我介绍已收起，点击右侧按钮可展开。" : introText}</p>
       </div>
       <div className="assistant-intro-actions">
         <button
