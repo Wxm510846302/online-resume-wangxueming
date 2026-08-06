@@ -2889,7 +2889,7 @@ function SkillMatrix() {
     ["客户端", "iOS (Swift)", "Flutter App", "WebView", "性能优化", "SDK"],
     ["后端", "Node.js", "Python", "GraphQL", "接口设计", "自动化脚本"],
     ["数据 / 存储", "SQLite", "FMDB", "CoreData", "MySQL", "Redis"],
-    ["工程化 / 工具", "Vite", "CocoaPods", "CI/CD", "Git", "ESLint"],
+    ["工程化 / 工具", "Vite", "CocoaPods", "CI/CD", "Git", "Jenkins"],
     ["Web3 / AI", "Solidity", "Ethers.js", "NFT", "AI API", "LangChain"],
   ];
   return (
