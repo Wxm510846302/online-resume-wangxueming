@@ -3,6 +3,13 @@
 const fs = require("fs");
 const path = require("path");
 const { parseCozeAnswer } = require("./cozeAnswerParser");
+const {
+  DAILY_QUESTION_LIMIT_ERROR,
+  DAILY_QUESTION_LIMIT_MESSAGE,
+  consumeDailyQuestionQuota,
+  readDailyQuestionQuota,
+  toPublicQuota,
+} = require("./dailyQuestionQuota");
 
 const COZE_CHAT_URL = "https://api.coze.cn/v3/chat";
 const COZE_SPEECH_URL = "https://api.coze.cn/v1/audio/speech";
@@ -45,6 +52,22 @@ exports.main = async function (event = {}, context = {}) {
   const userId = safeId(body.userId) || buildUserId(event);
   const conversationId = safeId(body.conversationId);
   try {
+    let database = null;
+    try {
+      database = uniCloud.database();
+    } catch (error) {
+      // 旧运行环境或数据库服务短时不可用时保持 AI 可用，前端本地额度仍会继续生效。
+      console.log("daily-question-database", error.message);
+    }
+    const dailyQuota = await readDailyQuestionQuota(database, userId);
+    if (!dailyQuota.allowed) {
+      return response(429, {
+        error: DAILY_QUESTION_LIMIT_ERROR,
+        message: DAILY_QUESTION_LIMIT_MESSAGE,
+        quota: toPublicQuota(dailyQuota),
+      }, origin);
+    }
+
     // 首次请求保留多轮会话；若 Coze 偶发只返回 verbose 而没有答案，则用新会话自动重试一次。
     let chatAttempt = null;
     try {
@@ -77,7 +100,13 @@ exports.main = async function (event = {}, context = {}) {
       await saveConversation(record);
     }
 
-    return response(200, { answer, conversationId: nextConversationId || conversationId }, origin);
+    // 只有 Coze 成功生成可展示答案后才扣减次数，接口异常不会消耗访客额度。
+    const quota = await consumeDailyQuestionQuota(database, dailyQuota, userId);
+    return response(200, {
+      answer,
+      conversationId: nextConversationId || conversationId,
+      quota,
+    }, origin);
   } catch (error) {
     return response(502, { error: "Coze API stream failed", detail: error.message }, origin);
   }

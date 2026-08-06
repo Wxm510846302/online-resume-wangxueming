@@ -1,18 +1,40 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ArrowLeft, ArrowUpRight, Blocks, BriefcaseBusiness, CalendarClock, Camera, CheckCircle2, ChevronDown, ChevronUp, Code2, Copy, Cpu, Download, FileText, Gauge, Gamepad2, Github, KeyRound, LockKeyhole, Mail, MapPin, Menu, MessageCircle, PackageCheck, Phone, PlayCircle, RefreshCw, Send, ShieldCheck, Shuffle, Sparkles, Square, TimerReset, UserCog, Volume2, X } from "lucide-react";
 import { resume, projects } from "./data/resume.js";
 import { parseCozeSseChunk } from "./utils/cozeStream.js";
+import {
+  DAILY_QUESTION_LIMIT_ERROR,
+  DAILY_QUESTION_LIMIT_MESSAGE,
+  createDailyQuestionLimitError,
+  getDailyQuestionStorage,
+  hasReachedDailyQuestionLimit,
+  isDailyQuestionLimitError,
+  recordSuccessfulQuestion,
+} from "./utils/dailyQuestionLimit.js";
 import aiAvatar from "./assets/images/avatar-ai.png?avatar-ai-v1";
 import heroLayerBg from "./assets/images/hero-layer-bg.jpg?layered-v1";
 import heroLayerPerson from "./assets/images/hero-layer-person.png?layered-v1";
+import hebeiHighwayLogo from "./assets/images/project-logos/hebei-highway.jpeg";
+import kkhcLogo from "./assets/images/project-logos/kkhc.png";
+import langzhiLogo from "./assets/images/project-logos/langzhi.png";
+import linekongLogo from "./assets/images/project-logos/linekong.jpg";
+import maisijiaMathLogo from "./assets/images/project-logos/maisijia-math.png";
+import patiReadingLogo from "./assets/images/project-logos/pati-reading.png";
 import "./styles.css";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-const defaultCozeApiPath = import.meta.env.VITE_COZE_PROXY_PATH || "/api/coze-chat";
-const cozeApiPaths = parseProxyPaths(import.meta.env.VITE_COZE_PROXY_PATHS, defaultCozeApiPath);
+const cozeChatCloudApiPath = "https://fc-mp-80ef50b6-4838-4618-a67a-e60b50667633.next.bspapp.com/coze-chat";
+// 本地开发优先使用 Vite 中间件，静态线上环境则直接使用可跨域访问的云函数。
+const defaultCozeApiPath = import.meta.env.VITE_COZE_PROXY_PATH
+  || (isLocalRuntime() ? "/api/coze-chat" : cozeChatCloudApiPath);
+// 即使部署平台漏配构建变量，线上问答仍会在自定义代理失败后回退到已部署的 uniCloud 接口。
+const cozeApiPaths = parseProxyPaths(
+  [import.meta.env.VITE_COZE_PROXY_PATHS, isLocalRuntime() ? "" : cozeChatCloudApiPath],
+  defaultCozeApiPath,
+);
 const cozeSpeechApiPaths = parseProxyPaths(
   import.meta.env.VITE_COZE_SPEECH_PROXY_PATHS,
   import.meta.env.VITE_COZE_SPEECH_PROXY_PATH || cozeApiPaths,
@@ -57,6 +79,16 @@ const iconMap = {
 };
 
 const metricIcons = [CalendarClock, UserCog, Blocks, Gauge, Gamepad2, PackageCheck];
+
+// 项目 Logo 以项目 slug 显式绑定，避免卡片排序变化后出现品牌错位。
+const projectLogoMap = {
+  "hebei-highway-oa": hebeiHighwayLogo,
+  "kkhc-app": kkhcLogo,
+  "langzhi-digital": langzhiLogo,
+  "linekong-sdk-bi-web3": linekongLogo,
+  "maisijia-math": maisijiaMathLogo,
+  "pati-reading": patiReadingLogo,
+};
 
 const aiMiniProjects = [
   {
@@ -1753,6 +1785,23 @@ function useAssistantChat() {
   const messageAudioRef = React.useRef(null);
   const messageSpeechAbortRef = React.useRef(null);
 
+  const appendDailyQuestionLimitReply = React.useCallback((question = "") => {
+    const timestamp = Date.now();
+    const limitMessage = {
+      id: `limit-${timestamp}`,
+      role: "assistant",
+      text: DAILY_QUESTION_LIMIT_MESSAGE,
+      quotaNotice: true,
+    };
+    setMessages((current) => [
+      ...current,
+      ...(question ? [{ id: `u-${timestamp}`, role: "user", text: question }] : []),
+      limitMessage,
+    ]);
+    // 次数用完属于正常业务状态，不能误显示成接口离线。
+    setServiceState("ready");
+  }, []);
+
   const stopMessageSpeech = React.useCallback(() => {
     messageSpeechAbortRef.current?.abort();
     messageSpeechAbortRef.current = null;
@@ -1856,6 +1905,10 @@ function useAssistantChat() {
   const ask = React.useCallback(async (question, context = null) => {
     const trimmed = question.trim();
     if (!trimmed || isSending) return;
+    if (hasReachedDailyQuestionLimit(getDailyQuestionStorage())) {
+      appendDailyQuestionLimitReply(trimmed);
+      return;
+    }
     const effectiveQuestion = context?.text
       ? `请基于上一段回答继续追问。上一段回答：\n${context.text}\n\n用户追问：${trimmed}`
       : trimmed;
@@ -1881,9 +1934,22 @@ function useAssistantChat() {
 
     try {
       await streamAssistantReply(effectiveQuestion, assistantId, controller.signal, setMessages, setServiceState);
+      recordSuccessfulQuestion(getDailyQuestionStorage());
       setServiceState("ready");
     } catch (error) {
       if (controller.signal.aborted) return;
+      if (isDailyQuestionLimitError(error)) {
+        setMessages((current) => updateMessage(current, assistantId, {
+          text: error.message || DAILY_QUESTION_LIMIT_MESSAGE,
+          pending: false,
+          typing: false,
+          error: false,
+          thinking: null,
+          quotaNotice: true,
+        }));
+        setServiceState("ready");
+        return;
+      }
       const fallback = getAssistantReply(trimmed);
       const fallbackText = `真实 AI 暂时未连通：${error.message || "请求失败"}\n\n先给你一版本地简历兜底回答：${fallback}`;
       updateAssistantThinking(setMessages, assistantId, "fallback");
@@ -1901,7 +1967,7 @@ function useAssistantChat() {
       setIsSending(false);
       abortRef.current = null;
     }
-  }, [isSending]);
+  }, [appendDailyQuestionLimitReply, isSending]);
 
   const speakMessage = React.useCallback(async (message) => {
     if (!message?.text || message.pending || message.typing) return;
@@ -1964,6 +2030,10 @@ function useAssistantChat() {
 
   const refreshMessage = React.useCallback(async (message) => {
     if (!message?.id || isSending) return;
+    if (hasReachedDailyQuestionLimit(getDailyQuestionStorage())) {
+      appendDailyQuestionLimitReply();
+      return;
+    }
     const question = message.sourceQuestion || "请重新介绍一下王学明的技术背景和岗位匹配。";
     setMessages((current) =>
       updateMessage(current, message.id, {
@@ -1985,9 +2055,22 @@ function useAssistantChat() {
 
     try {
       await streamAssistantReply(question, message.id, controller.signal, setMessages, setServiceState);
+      recordSuccessfulQuestion(getDailyQuestionStorage());
       setServiceState("ready");
     } catch (error) {
       if (controller.signal.aborted) return;
+      if (isDailyQuestionLimitError(error)) {
+        setMessages((current) => updateMessage(current, message.id, {
+          text: error.message || DAILY_QUESTION_LIMIT_MESSAGE,
+          pending: false,
+          typing: false,
+          error: false,
+          thinking: null,
+          quotaNotice: true,
+        }));
+        setServiceState("ready");
+        return;
+      }
       const fallback = getAssistantReply(question);
       const fallbackText = `真实 AI 暂时未连通：${error.message || "请求失败"}\n\n先给你一版本地简历兜底回答：${fallback}`;
       updateAssistantThinking(setMessages, message.id, "fallback");
@@ -2005,7 +2088,7 @@ function useAssistantChat() {
       setIsSending(false);
       abortRef.current = null;
     }
-  }, [isSending, stopMessageSpeech]);
+  }, [appendDailyQuestionLimitReply, isSending, stopMessageSpeech]);
 
   return {
     ask,
@@ -2326,6 +2409,7 @@ function AssistantMarkdown({ text, typing = false }) {
     <div className="assistant-markdown">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        urlTransform={transformAssistantUrl}
         components={{
           a: ({ href, children, ...props }) => (
             <a href={href} target="_blank" rel="noreferrer" {...props}>
@@ -2338,6 +2422,11 @@ function AssistantMarkdown({ text, typing = false }) {
       </ReactMarkdown>
     </div>
   );
+}
+
+function transformAssistantUrl(url) {
+  // react-markdown 默认会移除 tel:，这里仅额外放行电话协议，其余链接继续使用默认安全过滤。
+  return /^tel:/i.test(url) ? url : defaultUrlTransform(url);
 }
 
 function prepareAssistantMarkdown(text, typing = false) {
@@ -2381,6 +2470,8 @@ async function streamAssistantReply(question, assistantId, signal, setMessages, 
         return;
       } catch (error) {
         if (signal.aborted) throw error;
+        // 额度耗尽是确定的业务结果，不再尝试其他代理，避免绕过服务端限制。
+        if (isDailyQuestionLimitError(error)) throw error;
         lastError = error;
       }
     }
@@ -2388,6 +2479,7 @@ async function streamAssistantReply(question, assistantId, signal, setMessages, 
     thinkingGate.cancel();
   }
 
+  if (isDailyQuestionLimitError(lastError)) throw lastError;
   throw new Error(formatProxyFailure("AI 接口", lastError));
 }
 
@@ -2416,6 +2508,9 @@ async function streamAssistantReplyFromPath(
 
   if (!response.ok || !response.body) {
     const payload = await response.json().catch(() => null);
+    if (response.status === 429 && payload?.error === DAILY_QUESTION_LIMIT_ERROR) {
+      throw createDailyQuestionLimitError(payload?.message);
+    }
     throw new Error(payload?.detail || payload?.error || `HTTP ${response.status}`);
   }
 
@@ -2877,11 +2972,18 @@ function SectionTitle({ title, text }) {
 
 function ProjectCard({ project, index }) {
   const detailHref = `${basePath}/#/project/${project.slug}`;
+  const projectLogo = projectLogoMap[project.slug];
 
   return (
     <article className="project-card">
       <div className="project-card-head">
-        <div className="project-icon"><Code2 size={24} /></div>
+        <div className="project-icon">
+          {projectLogo ? (
+            <img src={projectLogo} alt={`${project.name} Logo`} />
+          ) : (
+            <Code2 size={24} aria-hidden="true" />
+          )}
+        </div>
         <div className="project-head-meta">
           <span>Case {String(index + 1).padStart(2, "0")}</span>
           <div className="project-topline">

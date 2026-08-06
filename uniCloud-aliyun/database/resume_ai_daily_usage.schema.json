@@ -1,0 +1,19 @@
+{
+  "bsonType": "object",
+  "description": "AI 分身普通访客每日提问额度，仅允许云函数访问。",
+  "permission": {
+    "read": false,
+    "create": false,
+    "update": false,
+    "delete": false
+  },
+  "required": ["usageKey", "userId", "dateKey", "used", "createdAt", "updatedAt"],
+  "properties": {
+    "usageKey": { "bsonType": "string", "description": "北京时间日期与访客标识组成的唯一查询键" },
+    "userId": { "bsonType": "string", "description": "脱敏后的访客标识" },
+    "dateKey": { "bsonType": "string", "description": "北京时间自然日，格式 YYYY-MM-DD" },
+    "used": { "bsonType": "int", "minimum": 0, "maximum": 5, "description": "当日已成功完成的问答次数" },
+    "createdAt": { "bsonType": "string", "description": "额度记录创建时间" },
+    "updatedAt": { "bsonType": "string", "description": "额度记录最近更新时间" }
+  }
+}
