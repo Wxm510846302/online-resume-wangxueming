@@ -6,7 +6,6 @@
     "memorySize": 256,
     "path": "/coze-chat",
     "timeout": 60,
-    "triggers": [],
-    "runtime": "Nodejs18"
+    "triggers": []
   }
 }
