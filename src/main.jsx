@@ -1438,15 +1438,21 @@ function Header({ auth }) {
             {label}
           </a>
         ))}
-        <a
-          className="nav-cta"
-          href={`${basePath}/wangxueming-resume.pdf`}
-          download="王学明开发岗个人简历v2.5.2.pdf"
-        >
-          <span className="nav-cta-icon"><Download size={18} /></span>
-          <span>下载简历</span>
-          <strong>PDF</strong>
-        </a>
+        <span className="nav-cta-cluster">
+          <a
+            className="nav-cta"
+            href={`${basePath}/wangxueming-resume.pdf`}
+            download="王学明开发岗个人简历v2.5.2.pdf"
+          >
+            <span className="nav-cta-icon"><Download size={18} /></span>
+            <span>下载简历</span>
+            <strong>PDF</strong>
+          </a>
+          {/* 独立指示器只引导视线，避免下载按钮本身持续晃动。 */}
+          <span className="nav-cta-pointer" aria-hidden="true">
+            <ArrowLeft size={30} strokeWidth={3.4} />
+          </span>
+        </span>
       </nav>
     </header>
   );

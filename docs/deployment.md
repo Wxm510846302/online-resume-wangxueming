@@ -1,3 +1,15 @@
+# 本地运行方法：
+cd /Users/xuemingwang/Desktop/KKHC/online-resume-wangxueming
+
+# Vite 7 需要 Node.js 20.19+，推荐 Node 22
+nvm install 22
+nvm use 22
+
+# 首次运行需要安装依赖
+npm install
+
+npm run dev
+
 # Deployment Notes
 
 默认构建支持部署在域名根路径，例如 `https://example.com/`。
