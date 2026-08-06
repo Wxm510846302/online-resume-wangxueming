@@ -2930,7 +2930,7 @@ function TimelineCompact() {
           aria-expanded={expanded}
           onClick={() => setExpanded((value) => !value)}
         >
-          {expanded ? "收起经历" : "查看完整经历"} <ArrowUpRight size={15} />
+          {expanded ? "收起经历" : "查看完整工作经历"} <ArrowUpRight size={15} />
         </button>
       </div>
       <div className="timeline compact">
