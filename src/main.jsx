@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import { ArrowLeft, ArrowUpRight, Blocks, BriefcaseBusiness, CalendarClock, Camera, CheckCircle2, ChevronDown, ChevronUp, Code2, Copy, Cpu, Download, FileText, Gauge, Gamepad2, Github, KeyRound, LockKeyhole, Mail, MapPin, Menu, MessageCircle, PackageCheck, Phone, PlayCircle, RefreshCw, Send, ShieldCheck, Shuffle, Sparkles, Square, TimerReset, UserCog, Volume2, X } from "lucide-react";
 import { resume, projects } from "./data/resume.js";
 import { parseCozeSseChunk } from "./utils/cozeStream.js";
+import { runWithTransientRetry } from "./utils/proxyRetry.js";
 import {
   DAILY_QUESTION_LIMIT_ERROR,
   DAILY_QUESTION_LIMIT_MESSAGE,
@@ -1957,7 +1958,7 @@ function useAssistantChat() {
         return;
       }
       const fallback = getAssistantReply(trimmed);
-      const fallbackText = `真实 AI 暂时未连通：${error.message || "请求失败"}\n\n先给你一版本地简历兜底回答：${fallback}`;
+      const fallbackText = `真实 AI 暂时未连通：${getProxyFailureDetail(error)}\n\n先给你一版本地简历兜底回答：${fallback}`;
       updateAssistantThinking(setMessages, assistantId, "fallback");
       setServiceState("replying");
       await typeAssistantText(
@@ -2078,7 +2079,7 @@ function useAssistantChat() {
         return;
       }
       const fallback = getAssistantReply(question);
-      const fallbackText = `真实 AI 暂时未连通：${error.message || "请求失败"}\n\n先给你一版本地简历兜底回答：${fallback}`;
+      const fallbackText = `真实 AI 暂时未连通：${getProxyFailureDetail(error)}\n\n先给你一版本地简历兜底回答：${fallback}`;
       updateAssistantThinking(setMessages, message.id, "fallback");
       setServiceState("replying");
       await typeAssistantText(
@@ -2447,14 +2448,18 @@ async function streamAssistantReply(question, assistantId, signal, setMessages, 
   try {
     for (const path of cozeApiPaths) {
       try {
-        await streamAssistantReplyFromPath(
-          path,
-          question,
-          assistantId,
-          signal,
-          setMessages,
-          setServiceState,
-          thinkingGate.prepareWriting,
+        // 同一代理仅对瞬时故障重试一次，避免偶发抖动立即切到本地兜底回答。
+        await runWithTransientRetry(
+          () => streamAssistantReplyFromPath(
+            path,
+            question,
+            assistantId,
+            signal,
+            setMessages,
+            setServiceState,
+            thinkingGate.prepareWriting,
+          ),
+          { signal, maxAttempts: 2, delayMs: 900 },
         );
         return;
       } catch (error) {
@@ -2500,7 +2505,10 @@ async function streamAssistantReplyFromPath(
     if (response.status === 429 && payload?.error === DAILY_QUESTION_LIMIT_ERROR) {
       throw createDailyQuestionLimitError(payload?.message);
     }
-    throw new Error(payload?.detail || payload?.error || `HTTP ${response.status}`);
+    const error = new Error(payload?.detail || payload?.error || `HTTP ${response.status}`);
+    // 保留 HTTP 状态码，让重试策略区分瞬时服务端错误和不可重试的业务请求错误。
+    error.status = response.status;
+    throw error;
   }
 
   const contentType = response.headers.get("content-type") || "";
@@ -2622,6 +2630,12 @@ function formatProxyFailure(label, error) {
     return `${label}暂时未连通：代理服务不可访问或未返回跨域响应`;
   }
   return `${label}暂时未连通：${detail}`;
+}
+
+function getProxyFailureDetail(error) {
+  const detail = error?.message || "请求失败";
+  // 外层已经展示“真实 AI 暂时未连通”，这里去掉内部同义前缀，避免错误文案重复嵌套。
+  return detail.replace(/^AI 接口暂时未连通[：:]\s*/, "");
 }
 
 function base64ToAudioBlob(value, mimeType) {
